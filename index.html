@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrador eSIM BAITEL</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .search-filters {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input, .form-group select {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            font-size: 12px;
+            padding: 8px 16px;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+            font-size: 12px;
+            padding: 8px 16px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .view-toggle {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .view-toggle button {
+            padding: 10px 20px;
+            border: 2px solid #3498db;
+            background: white;
+            color: #3498db;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .view-toggle button.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .esim-card {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            background: white;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .esim-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-color: #3498db;
+        }
+
+        .esim-card.usado {
+            border-color: #e74c3c;
+            background: #ffeaa7;
+        }
+
+        .esim-card.disponible {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-badge.disponible {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-badge.usado {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .qr-container {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .qr-placeholder {
+            width: 120px;
+            height: 120px;
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .qr-placeholder:hover {
+            border-color: #3498db;
+            background: #e3f2fd;
+        }
+
+        .esim-info {
+            font-size: 14px;
+        }
+
+        .esim-info .field {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .esim-info .label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .esim-info .value {
+            color: #6c757d;
+            font-family: monospace;
+        }
+
+        .card-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .table-view {
+            display: none;
+            overflow-x: auto;
+        }
+
+        .table-view.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .qr-mini {
+            width: 40px;
+            height: 40px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .modal-qr {
+            width: 300px;
+            height: 300px;
+            margin: 20px auto;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        @media (max-width: 768px) {
+            .search-filters {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid-view {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Administrador eSIM BAITEL</h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalCount">100</div>
+                    <div>Total eSIM</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="availableCount">100</div>
+                    <div>Disponibles</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="usedCount">0</div>
+                    <div>Usadas</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="search-filters">
+                <div class="form-group">
+                    <label>Buscar</label>
+                    <input type="text" id="searchInput" placeholder="ICCID, MSISDN, IMSI...">
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select id="statusFilter">
+                        <option value="">Todos</option>
+                        <option value="Disponible">Disponible</option>
+                        <option value="Usado">Usado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Producto</label>
+                    <select id="productFilter">
+                        <option value="">Todos</option>
+                        <option value="MOV">MOV</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>IP</label>
+                    <select id="ipFilter">
+                        <option value="">Todos</option>
+                        <option value="CB127">CB127</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="resetFilters()">Limpiar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="view-toggle">
+                <button class="active" onclick="switchView('grid')">Vista Cuadrícula</button>
+                <button onclick="switchView('table')">Vista Tabla</button>
+            </div>
+
+            <div id="gridView" class="grid-view"></div>
+
+            <div id="tableView" class="table-view">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>QR</th>
+                            <th>ICCID</th>
+                            <th>MSISDN</th>
+                            <th>IMSI</th>
+                            <th>PIN</th>
+                            <th>PUK</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3 id="modalTitle">Código QR eSIM</h3>
+            <div class="modal-qr" id="modalQR"></div>
+            <div id="modalInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        const esimDatabase = [
+            {id: 1, iccid: "8952140063883310669F", distribuidor: "BAITEL", msisdn: "2219519816", imsi: "334140224894201", pin: "1234", puk: "50862899", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 1},
+            {id: 2, iccid: "8952140063883310677F", distribuidor: "BAITEL", msisdn: "2219519832", imsi: "334140224894202", pin: "1234", puk: "58399116", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 2},
+            {id: 3, iccid: "8952140063883310685F", distribuidor: "BAITEL", msisdn: "2219519836", imsi: "334140224894203", pin: "1234", puk: "19360807", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 3},
+            {id: 4, iccid: "8952140063883310693F", distribuidor: "BAITEL", msisdn: "2219519851", imsi: "334140224894204", pin: "1234", puk: "55075610", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 4},
+            {id: 5, iccid: "8952140063883310701F", distribuidor: "BAITEL", msisdn: "2219519852", imsi: "334140224894205", pin: "1234", puk: "46271999", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 5},
+            {id: 6, iccid: "8952140063883310719F", distribuidor: "BAITEL", msisdn: "2219519859", imsi: "334140224894206", pin: "1234", puk: "81260431", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 6},
+            {id: 7, iccid: "8952140063883310727F", distribuidor: "BAITEL", msisdn: "2219519867", imsi: "334140224894207", pin: "1234", puk: "6471876", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 7},
+            {id: 8, iccid: "8952140063883310735F", distribuidor: "BAITEL", msisdn: "2219519870", imsi: "334140224894208", pin: "1234", puk: "58920758", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 8},
+            {id: 9, iccid: "8952140063883310743F", distribuidor: "BAITEL", msisdn: "2219519871", imsi: "334140224894209", pin: "1234", puk: "84721789", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 9},
+            {id: 10, iccid: "8952140063883310750F", distribuidor: "BAITEL", msisdn: "2219519876", imsi: "334140224894210", pin: "1234", puk: "4717880", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 10},
+            {id: 11, iccid: "8952140063883310768F", distribuidor: "BAITEL", msisdn: "2219519878", imsi: "334140224894211", pin: "1234", puk: "82185896", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 11},
+            {id: 12, iccid: "8952140063883310776F", distribuidor: "BAITEL", msisdn: "2219519884", imsi: "334140224894212", pin: "1234", puk: "65864765", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 12},
+            {id: 13, iccid: "8952140063883310784F", distribuidor: "BAITEL", msisdn: "2219519908", imsi: "334140224894213", pin: "1234", puk: "50321214", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 13},
+            {id: 14, iccid: "8952140063883310792F", distribuidor: "BAITEL", msisdn: "2219519911", imsi: "334140224894214", pin: "1234", puk: "87195908", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 14},
+            {id: 15, iccid: "8952140063883310800F", distribuidor: "BAITEL", msisdn: "2219519933", imsi: "334140224894215", pin: "1234", puk: "22547600", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 15},
+            {id: 16, iccid: "8952140063883310818F", distribuidor: "BAITEL", msisdn: "2219519944", imsi: "334140224894216", pin: "1234", puk: "79139902", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 16},
+            {id: 17, iccid: "8952140063883310826F", distribuidor: "BAITEL", msisdn: "2219519957", imsi: "334140224894217", pin: "1234", puk: "94072690", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 17},
+            {id: 18, iccid: "8952140063883310834F", distribuidor: "BAITEL", msisdn: "2219519962", imsi: "334140224894218", pin: "1234", puk: "71511049", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 18},
+            {id: 19, iccid: "8952140063883310842F", distribuidor: "BAITEL", msisdn: "2219519986", imsi: "334140224894219", pin: "1234", puk: "99984726", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 19},
+            {id: 20, iccid: "8952140063883310859F", distribuidor: "BAITEL", msisdn: "2219519992", imsi: "334140224894220", pin: "1234", puk: "99589770", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 20},
+            {id: 21, iccid: "8952140063883310867F", distribuidor: "BAITEL", msisdn: "2219520009", imsi: "334140224894221", pin: "1234", puk: "77390233", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 21},
+            {id: 22, iccid: "8952140063883310875F", distribuidor: "BAITEL", msisdn: "2219520046", imsi: "334140224894222", pin: "1234", puk: "64293157", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 22},
+            {id: 23, iccid: "8952140063883310883F", distribuidor: "BAITEL", msisdn: "2219520068", imsi: "334140224894223", pin: "1234", puk: "31536661", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 23},
+            {id: 24, iccid: "8952140063883310891F", distribuidor: "BAITEL", msisdn: "2219520124", imsi: "334140224894224", pin: "1234", puk: "60769311", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 24},
+            {id: 25, iccid: "8952140063883310909F", distribuidor: "BAITEL", msisdn: "2219520138", imsi: "334140224894225", pin: "1234", puk: "89648417", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 25},
+            {id: 26, iccid: "8952140063883310917F", distribuidor: "BAITEL", msisdn: "2219520139", imsi: "334140224894226", pin: "1234", puk: "65757422", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 26},
+            {id: 27, iccid: "8952140063883310925F", distribuidor: "BAITEL", msisdn: "2219520141", imsi: "334140224894227", pin: "1234", puk: "48188659", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 27},
+            {id: 28, iccid: "8952140063883310933F", distribuidor: "BAITEL", msisdn: "2219520163", imsi: "334140224894228", pin: "1234", puk: "25553433", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 28},
+            {id: 29, iccid: "8952140063883310941F", distribuidor: "BAITEL", msisdn: "2219520170", imsi: "334140224894229", pin: "1234", puk: "32334540", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 29},
+            {id: 30, iccid: "8952140063883310958F", distribuidor: "BAITEL", msisdn: "2219520187", imsi: "334140224894230", pin: "1234", puk: "35784864", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 30},
+            {id: 31, iccid: "8952140063883310966F", distribuidor: "BAITEL", msisdn: "2219520232", imsi: "334140224894231", pin: "1234", puk: "99051790", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 31},
+            {id: 32, iccid: "8952140063883310974F", distribuidor: "BAITEL", msisdn: "2219520239", imsi: "334140224894232", pin: "1234", puk: "14973956", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 32},
+            {id: 33, iccid: "8952140063883310982F", distribuidor: "BAITEL", msisdn: "2219520270", imsi: "334140224894233", pin: "1234", puk: "21072849", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 33},
+            {id: 34, iccid: "8952140063883310990F", distribuidor: "BAITEL", msisdn: "2219520274", imsi: "334140224894234", pin: "1234", puk: "52364929", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 34},
+            {id: 35, iccid: "8952140063883311006F", distribuidor: "BAITEL", msisdn: "2219520277", imsi: "334140224894235", pin: "1234", puk: "64378442", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 35},
+            {id: 36, iccid: "8952140063883311014F", distribuidor: "BAITEL", msisdn: "2219520287", imsi: "334140224894236", pin: "1234", puk: "30310982", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 36},
+            {id: 37, iccid: "8952140063883311022F", distribuidor: "BAITEL", msisdn: "2219520293", imsi: "334140224894237", pin: "1234", puk: "91401158", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 37},
+            {id: 38, iccid: "8952140063883311030F", distribuidor: "BAITEL", msisdn: "2219520299", imsi: "334140224894238", pin: "1234", puk: "83508224", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 38},
+            {id: 39, iccid: "8952140063883311048F", distribuidor: "BAITEL", msisdn: "2219520301", imsi: "334140224894239", pin: "1234", puk: "27736963", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 39},
+            {id: 40, iccid: "8952140063883311055F", distribuidor: "BAITEL", msisdn: "2219520329", imsi: "334140224894240", pin: "1234", puk: "15248219", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 40},
+            {id: 41, iccid: "8952140063883311063F", distribuidor: "BAITEL", msisdn: "2219520330", imsi: "334140224894241", pin: "1234", puk: "88895464", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 41},
+            {id: 42, iccid: "8952140063883311071F", distribuidor: "BAITEL", msisdn: "2219520334", imsi: "334140224894242", pin: "1234", puk: "95161679", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 42},
+            {id: 43, iccid: "8952140063883311089F", distribuidor: "BAITEL", msisdn: "2219520349", imsi: "334140224894243", pin: "1234", puk: "79336144", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 43},
+            {id: 44, iccid: "8952140063883311097F", distribuidor: "BAITEL", msisdn: "2219520354", imsi: "334140224894244", pin: "1234", puk: "96957971", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 44},
+            {id: 45, iccid: "8952140063883311105F", distribuidor: "BAITEL", msisdn: "2219520358", imsi: "334140224894245", pin: "1234", puk: "3474087", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 45},
+            {id: 46, iccid: "8952140063883311113F", distribuidor: "BAITEL", msisdn: "2219520365", imsi: "334140224894246", pin: "1234", puk: "89582058", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 46},
+            {id: 47, iccid: "8952140063883311121F", distribuidor: "BAITEL", msisdn: "2219520371", imsi: "334140224894247", pin: "1234", puk: "90331032", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 47},
+            {id: 48, iccid: "8952140063883311139F", distribuidor: "BAITEL", msisdn: "2219520382", imsi: "334140224894248", pin: "1234", puk: "35455237", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 48},
+            {id: 49, iccid: "8952140063883311147F", distribuidor: "BAITEL", msisdn: "2219520416", imsi: "334140224894249", pin: "1234", puk: "99573266", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 49},
+            {id: 50, iccid: "8952140063883311154F", distribuidor: "BAITEL", msisdn: "2219520435", imsi: "334140224894250", pin: "1234", puk: "19860865", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 50},
+            {id: 51, iccid: "8952140063883311162F", distribuidor: "BAITEL", msisdn: "2219520437", imsi: "334140224894251", pin: "1234", puk: "22621418", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 51},
+            {id: 52, iccid: "8952140063883311170F", distribuidor: "BAITEL", msisdn: "2219520439", imsi: "334140224894252", pin: "1234", puk: "73540241", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 52},
+            {id: 53, iccid: "8952140063883311188F", distribuidor: "BAITEL", msisdn: "2219520451", imsi: "334140224894253", pin: "1234", puk: "91201692", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 53},
+            {id: 54, iccid: "8952140063883311196F", distribuidor: "BAITEL", msisdn: "2219520469", imsi: "334140224894254", pin: "1234", puk: "37153335", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 54},
+            {id: 55, iccid: "8952140063883311204F", distribuidor: "BAITEL", msisdn: "2219520509", imsi: "334140224894255", pin: "1234", puk: "32140093", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 55},
+            {id: 56, iccid: "8952140063883311212F", distribuidor: "BAITEL", msisdn: "2219520519", imsi: "334140224894256", pin: "1234", puk: "87650341", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 56},
+            {id: 57, iccid: "8952140063883311220F", distribuidor: "BAITEL", msisdn: "2219520522", imsi: "334140224894257", pin: "1234", puk: "59898871", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 57},
+            {id: 58, iccid: "8952140063883311238F", distribuidor: "BAITEL", msisdn: "2219520557", imsi: "334140224894258", pin: "1234", puk: "6993304", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 58},
+            {id: 59, iccid: "8952140063883311246F", distribuidor: "BAITEL", msisdn: "2219520564", imsi: "334140224894259", pin: "1234", puk: "35825752", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 59},
+            {id: 60, iccid: "8952140063883311253F", distribuidor: "BAITEL", msisdn: "2219520565", imsi: "334140224894260", pin: "1234", puk: "1169657", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 60},
+            {id: 61, iccid: "8952140063883311261F", distribuidor: "BAITEL", msisdn: "2219520572", imsi: "334140224894261", pin: "1234", puk: "98504122", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 61},
+            {id: 62, iccid: "8952140063883311279F", distribuidor: "BAITEL", msisdn: "2219520594", imsi: "334140224894262", pin: "1234", puk: "55708402", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 62},
+            {id: 63, iccid: "8952140063883311287F", distribuidor: "BAITEL", msisdn: "2219520597", imsi: "334140224894263", pin: "1234", puk: "47166163", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 63},
+            {id: 64, iccid: "8952140063883311295F", distribuidor: "BAITEL", msisdn: "2219520599", imsi: "334140224894264", pin: "1234", puk: "8902845", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 64},
+            {id: 65, iccid: "8952140063883311303F", distribuidor: "BAITEL", msisdn: "2219520638", imsi: "334140224894265", pin: "1234", puk: "94629049", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 65},
+            {id: 66, iccid: "8952140063883311311F", distribuidor: "BAITEL", msisdn: "2219520684", imsi: "334140224894266", pin: "1234", puk: "72255391", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 66},
+            {id: 67, iccid: "8952140063883311329F", distribuidor: "BAITEL", msisdn: "2219520690", imsi: "334140224894267", pin: "1234", puk: "37114426", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 67},
+            {id: 68, iccid: "8952140063883311337F", distribuidor: "BAITEL", msisdn: "2219520728", imsi: "334140224894268", pin: "1234", puk: "76122415", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 68},
+            {id: 69, iccid: "8952140063883311345F", distribuidor: "BAITEL", msisdn: "2219520737", imsi: "334140224894269", pin: "1234", puk: "42316606", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 69},
+            {id: 70, iccid: "8952140063883311352F", distribuidor: "BAITEL", msisdn: "2219520752", imsi: "334140224894270", pin: "1234", puk: "70775857", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 70},
+            {id: 71, iccid: "8952140063883311360F", distribuidor: "BAITEL", msisdn: "2219520763", imsi: "334140224894271", pin: "1234", puk: "54107104", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 71},
+            {id: 72, iccid: "8952140063883311378F", distribuidor: "BAITEL", msisdn: "2219520798", imsi: "334140224894272", pin: "1234", puk: "80015657", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 72},
+            {id: 73, iccid: "8952140063883311386F", distribuidor: "BAITEL", msisdn: "2219520800", imsi: "334140224894273", pin: "1234", puk: "73560348", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 73},
+            {id: 74, iccid: "8952140063883311394F", distribuidor: "BAITEL", msisdn: "2219520845", imsi: "334140224894274", pin: "1234", puk: "57488327", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 74},
+            {id: 75, iccid: "8952140063883311402F", distribuidor: "BAITEL", msisdn: "2219520870", imsi: "334140224894275", pin: "1234", puk: "6527175", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 75},
+            {id: 76, iccid: "8952140063883311410F", distribuidor: "BAITEL", msisdn: "2219520873", imsi: "334140224894276", pin: "1234", puk: "59618240", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 76},
+            {id: 77, iccid: "8952140063883311428F", distribuidor: "BAITEL", msisdn: "2219520891", imsi: "334140224894277", pin: "1234", puk: "91951503", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 77},
+            {id: 78, iccid: "8952140063883311436F", distribuidor: "BAITEL", msisdn: "2219520898", imsi: "334140224894278", pin: "1234", puk: "16743736", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 78},
+            {id: 79, iccid: "8952140063883311444F", distribuidor: "BAITEL", msisdn: "2219520900", imsi: "334140224894279", pin: "1234", puk: "62698561", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 79},
+            {id: 80, iccid: "8952140063883311451F", distribuidor: "BAITEL", msisdn: "2219520906", imsi: "334140224894280", pin: "1234", puk: "72301772", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 80},
+            {id: 81, iccid: "8952140063883311469F", distribuidor: "BAITEL", msisdn: "2219520912", imsi: "334140224894281", pin: "1234", puk: "68094126", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 81},
+            {id: 82, iccid: "8952140063883311477F", distribuidor: "BAITEL", msisdn: "2219520914", imsi: "334140224894282", pin: "1234", puk: "31971854", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 82},
+            {id: 83, iccid: "8952140063883311485F", distribuidor: "BAITEL", msisdn: "2219520927", imsi: "334140224894283", pin: "1234", puk: "84258841", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 83},
+            {id: 84, iccid: "8952140063883311493F", distribuidor: "BAITEL", msisdn: "2219520933", imsi: "334140224894284", pin: "1234", puk: "15006150", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 84},
+            {id: 85, iccid: "8952140063883311501F", distribuidor: "BAITEL", msisdn: "2219520935", imsi: "334140224894285", pin: "1234", puk: "71327303", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 85},
+            {id: 86, iccid: "8952140063883311519F", distribuidor: "BAITEL", msisdn: "2219520962", imsi: "334140224894286", pin: "1234", puk: "29198564", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 86},
+            {id: 87, iccid: "8952140063883311527F", distribuidor: "BAITEL", msisdn: "2219520966", imsi: "334140224894287", pin: "1234", puk: "11477757", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 87},
+            {id: 88, iccid: "8952140063883311535F", distribuidor: "BAITEL", msisdn: "2219520973", imsi: "334140224894288", pin: "1234", puk: "68595607", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 88},
+            {id: 89, iccid: "8952140063883311543F", distribuidor: "BAITEL", msisdn: "2219520979", imsi: "334140224894289", pin: "1234", puk: "39282907", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 89},
+            {id: 90, iccid: "8952140063883311550F", distribuidor: "BAITEL", msisdn: "2219520983", imsi: "334140224894290", pin: "1234", puk: "17997225", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 90},
+            {id: 91, iccid: "8952140063883311568F", distribuidor: "BAITEL", msisdn: "2219520998", imsi: "334140224894291", pin: "1234", puk: "19368964", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 91},
+            {id: 92, iccid: "8952140063883311576F", distribuidor: "BAITEL", msisdn: "2219521003", imsi: "334140224894292", pin: "1234", puk: "20099493", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 92},
+            {id: 93, iccid: "8952140063883311584F", distribuidor: "BAITEL", msisdn: "2219521029", imsi: "334140224894293", pin: "1234", puk: "87438603", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 93},
+            {id: 94, iccid: "8952140063883311592F", distribuidor: "BAITEL", msisdn: "2219521032", imsi: "334140224894294", pin: "1234", puk: "70003114", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 94},
+            {id: 95, iccid: "8952140063883311600F", distribuidor: "BAITEL", msisdn: "2219521063", imsi: "334140224894295", pin: "1234", puk: "26775040", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 95},
+            {id: 96, iccid: "8952140063883311618F", distribuidor: "BAITEL", msisdn: "2219521064", imsi: "334140224894296", pin: "1234", puk: "32884021", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 96},
+            {id: 97, iccid: "8952140063883311626F", distribuidor: "BAITEL", msisdn: "2219521076", imsi: "334140224894297", pin: "1234", puk: "86071161", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 97},
+            {id: 98, iccid: "8952140063883311634F", distribuidor: "BAITEL", msisdn: "2219521088", imsi: "334140224894298", pin: "1234", puk: "88106119", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 98},
+            {id: 99, iccid: "8952140063883311642F", distribuidor: "BAITEL", msisdn: "2219521094", imsi: "334140224894299", pin: "1234", puk: "47498142", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 99},
+            {id: 100, iccid: "8952140063883311659F", distribuidor: "BAITEL", msisdn: "2219521106", imsi: "334140224894300", pin: "1234", puk: "59294401", serie: "9271", ip: "CB127", producto: "MOV", estado: "Disponible", fechaCreacion: "2025-09-04", imageIndex: 100}
+        ];
+
+        let filteredData = [...esimDatabase];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
+            renderGrid();
+            renderTable();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('productFilter').addEventListener('change', applyFilters);
+            document.getElementById('ipFilter').addEventListener('change', applyFilters);
+            document.querySelector('.close').addEventListener('click', closeModal);
+            document.getElementById('qrModal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+        }
+
+        function updateStats() {
+            const total = esimDatabase.length;
+            const available = esimDatabase.filter(item => item.estado === 'Disponible').length;
+            const used = esimDatabase.filter(item => item.estado === 'Usado').length;
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('availableCount').textContent = available;
+            document.getElementById('usedCount').textContent = used;
+        }
+
+        function renderGrid() {
+            const gridView = document.getElementById('gridView');
+            gridView.innerHTML = '';
+            filteredData.forEach(esim => {
+                const card = document.createElement('div');
+                card.className = `esim-card ${esim.estado.toLowerCase()}`;
+                const imageUrl = `https://kratoslar69.github.io/esim-qr-baitel/${esim.iccid}.png`;
+                
+                card.innerHTML = `
+                    <div class="status-badge ${esim.estado.toLowerCase()}">${esim.estado}</div>
+                    <div class="qr-container">
+                        <div class="qr-placeholder" onclick="showQRModal(${esim.id})" style="padding: 5px;">
+                            <img src="${imageUrl}" 
+                                 alt="QR ${esim.iccid}" 
+                                 style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display: none; align-items: center; justify-content: center; height: 100%; color: #666; flex-direction: column;">
+                                <div style="font-size: 24px;">📱</div>
+                                <div style="font-size: 12px;">QR #${esim.imageIndex}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="esim-info">
+                        <div class="field"><span class="label">ICCID:</span><span class="value">${esim.iccid}</span></div>
+                        <div class="field"><span class="label">MSISDN:</span><span class="value">${esim.msisdn}</span></div>
+                        <div class="field"><span class="label">IMSI:</span><span class="value">${esim.imsi}</span></div>
+                        <div class="field"><span class="label">PIN:</span><span class="value">${esim.pin}</span></div>
+                        <div class="field"><span class="label">PUK:</span><span class="value">${esim.puk}</span></div>
+                    </div>
+                    <div class="card-actions">
+                        ${esim.estado === 'Disponible' ? 
+                            `<button class="btn btn-warning" onclick="markAsUsed(${esim.id})">Marcar como Usado</button>` :
+                            `<button class="btn btn-success" onclick="markAsAvailable(${esim.id})">Marcar como Disponible</button>`
+                        }
+                    </div>
+                `;
+                gridView.appendChild(card);
+            });
+        }
+
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            filteredData.forEach(esim => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><div class="qr-mini" onclick="showQRModal(${esim.id})" style="display: flex; align-items: center; justify-content: center; font-size: 12px;">QR</div></td>
+                    <td style="font-family: monospace; font-size: 12px;">${esim.iccid}</td>
+                    <td style="font-family: monospace;">${esim.msisdn}</td>
+                    <td style="font-family: monospace; font-size: 12px;">${esim.imsi}</td>
+                    <td style="font-family: monospace;">${esim.pin}</td>
+                    <td style="font-family: monospace;">${esim.puk}</td>
+                    <td><span class="status-badge ${esim.estado.toLowerCase()}">${esim.estado}</span></td>
+                    <td>${esim.estado === 'Disponible' ? 
+                        `<button class="btn btn-warning" onclick="markAsUsed(${esim.id})">Usar</button>` :
+                        `<button class="btn btn-success" onclick="markAsAvailable(${esim.id})">Liberar</button>`
+                    }</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function switchView(view) {
+            const buttons = document.querySelectorAll('.view-toggle button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            if (view === 'grid') {
+                document.getElementById('gridView').style.display = 'grid';
+                document.getElementById('tableView').classList.remove('active');
+            } else {
+                document.getElementById('gridView').style.display = 'none';
+                document.getElementById('tableView').classList.add('active');
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const productFilter = document.getElementById('productFilter').value;
+            const ipFilter = document.getElementById('ipFilter').value;
+
+            filteredData = esimDatabase.filter(esim => {
+                const matchesSearch = !searchTerm || 
+                    esim.iccid.toLowerCase().includes(searchTerm) ||
+                    esim.msisdn.includes(searchTerm) ||
+                    esim.imsi.includes(searchTerm);
+                const matchesStatus = !statusFilter || esim.estado === statusFilter;
+                const matchesProduct = !productFilter || esim.producto === productFilter;
+                const matchesIP = !ipFilter || esim.ip === ipFilter;
+                return matchesSearch && matchesStatus && matchesProduct && matchesIP;
+            });
+
+            renderGrid();
+            renderTable();
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('productFilter').value = '';
+            document.getElementById('ipFilter').value = '';
+            filteredData = [...esimDatabase];
+            renderGrid();
+            renderTable();
+        }
+
+        function markAsUsed(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (esim) {
+                esim.estado = 'Usado';
+                updateStats();
+                applyFilters();
+            }
+        }
+
+        function markAsAvailable(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (esim) {
+                esim.estado = 'Disponible';
+                updateStats();
+                applyFilters();
+            }
+        }
+
+        function showQRModal(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (!esim) return;
+
+            document.getElementById('modalTitle').textContent = `eSIM #${esim.imageIndex} - ${esim.iccid}`;
+            document.getElementById('modalQR').innerHTML = `
+                <img src="https://kratoslar69.github.io/esim-qr-baitel/${esim.iccid}.png" 
+                     alt="QR ${esim.iccid}" 
+                     style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div style="display: none; align-items: center; justify-content: center; height: 100%; color: #666; flex-direction: column;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+                    <div>Código QR eSIM #${esim.imageIndex}</div>
+                    <div style="font-size: 12px; margin-top: 10px; font-family: monospace;">${esim.iccid}</div>
+                </div>
+            `;
+            
+            document.getElementById('modalInfo').innerHTML = `
+                <div style="text-align: left; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h4 style="margin-bottom: 15px; text-align: center;">Información Detallada</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-family: monospace; font-size: 14px;">
+                        <div><strong>ICCID:</strong><br>${esim.iccid}</div>
+                        <div><strong>MSISDN:</strong><br>${esim.msisdn}</div>
+                        <div><strong>IMSI:</strong><br>${esim.imsi}</div>
+                        <div><strong>Serie:</strong><br>${esim.serie}</div>
+                        <div><strong>PIN:</strong><br>${esim.pin}</div>
+                        <div><strong>PUK:</strong><br>${esim.puk}</div>
+                        <div><strong>IP:</strong><br>${esim.ip}</div>
+                        <div><strong>Producto:</strong><br>${esim.producto}</div>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <span class="status-badge ${esim.estado.toLowerCase()}" style="font-size: 14px; padding: 8px 16px;">${esim.estado}</span>
+                    </div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        ${esim.estado === 'Disponible' ? 
+                            `<button class="btn btn-warning" onclick="markAsUsed(${esim.id}); closeModal();">Marcar como Usado</button>` :
+                            `<button class="btn btn-success" onclick="markAsAvailable(${esim.id}); closeModal();">Marcar como Disponible</button>`
+                        }
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('qrModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        function copyEsimInfo(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (!esim) return;
+            
+            const info = `eSIM #${esim.imageIndex}
+ICCID: ${esim.iccid}
+MSISDN: ${esim.msisdn}
+IMSI: ${esim.imsi}
+PIN: ${esim.pin}
+PUK: ${esim.puk}
+Serie: ${esim.serie}
+IP: ${esim.ip}
+Producto: ${esim.producto}
+Estado: ${esim.estado}`;
+
+            navigator.clipboard.writeText(info).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copiado!';
+                btn.style.background = '#27ae60';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#3498db';
+                }, 2000);
+            }).catch(() => {
+                alert('Información copiada manualmente:\n\n' + info);
+            });
+        }
+
+        function addNewBatch(newEsimData) {
+            esimDatabase.push(...newEsimData);
+            filteredData = [...esimDatabase];
+            updateStats();
+            renderGrid();
+            renderTable();
+            document.getElementById('totalCount').textContent = esimDatabase.length;
+        }
+    </script>
+</body>
+</html>
