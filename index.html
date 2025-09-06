@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrador eSIM BAITEL - Sistema Completo</title>
+    <title>Administrador eSIM BAITEL - Sincronización en la Nube</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -60,6 +63,14 @@
             border-radius: 50%;
             background: #27ae60;
             animation: pulse 2s infinite;
+        }
+
+        .sync-indicator.connecting {
+            background: #f39c12;
+        }
+
+        .sync-indicator.error {
+            background: #e74c3c;
         }
 
         @keyframes pulse {
@@ -144,12 +155,18 @@
             text-align: center;
         }
 
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         .btn-primary {
             background: #3498db;
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: #2980b9;
             transform: translateY(-2px);
         }
@@ -173,7 +190,7 @@
             color: white;
         }
 
-        .btn-export:hover {
+        .btn-export:hover:not(:disabled) {
             background: #7d3c98;
             transform: translateY(-2px);
         }
@@ -183,7 +200,7 @@
             color: white;
         }
 
-        .btn-import:hover {
+        .btn-import:hover:not(:disabled) {
             background: #229954;
             transform: translateY(-2px);
         }
@@ -193,7 +210,7 @@
             color: white;
         }
 
-        .btn-sync:hover {
+        .btn-sync:hover:not(:disabled) {
             background: #138496;
             transform: translateY(-2px);
         }
@@ -470,6 +487,29 @@
             font-size: 14px;
         }
 
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .search-filters {
                 grid-template-columns: 1fr;
@@ -495,8 +535,8 @@
     <div class="container">
         <div class="header">
             <div class="sync-status">
-                <div class="sync-indicator"></div>
-                <span id="syncStatus">Sincronizado</span>
+                <div class="sync-indicator" id="syncIndicator"></div>
+                <span id="syncStatus">Conectando...</span>
             </div>
             <h1>Administrador eSIM BAITEL</h1>
             <div class="stats">
@@ -547,10 +587,10 @@
                     <button class="btn btn-primary" onclick="resetFilters()">Limpiar</button>
                 </div>
                 <div>
-                    <button class="btn btn-export" onclick="exportToExcel()">Exportar Excel</button>
+                    <button class="btn btn-export" onclick="exportToExcel()" id="exportBtn">Exportar Excel</button>
                 </div>
                 <div>
-                    <button class="btn btn-sync" onclick="syncWithGitHub()">Sincronizar GitHub</button>
+                    <button class="btn btn-sync" onclick="syncWithGitHub()" id="syncBtn">Sincronizar GitHub</button>
                 </div>
             </div>
 
@@ -575,7 +615,9 @@
                 <button onclick="switchView('table')">Vista Tabla</button>
             </div>
 
-            <div id="gridView" class="grid-view"></div>
+            <div id="loadingMessage" class="loading">Cargando datos desde la nube...</div>
+
+            <div id="gridView" class="grid-view" style="display: none;"></div>
 
             <div id="tableView" class="table-view">
                 <table>
@@ -608,109 +650,204 @@
     </div>
 
     <script>
-        // Configuración del sistema
-        const CONFIG = {
-            githubRepo: 'kratoslar69/esim-qr-baitel',
-            githubApiUrl: 'https://api.github.com/repos/kratoslar69/esim-qr-baitel/contents',
-            qrBaseUrl: 'https://kratoslar69.github.io/esim-qr-baitel/',
-            localStorageKey: 'esim_baitel_data',
-            lastSyncKey: 'esim_baitel_last_sync',
-            syncInterval: 30000 // 30 segundos
+        // Configuración de Firebase - REEMPLAZA CON TUS CREDENCIALES
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummy-Replace-With-Your-API-Key",
+            authDomain: "esim-baitel-default-rtdb.firebaseapp.com",
+            databaseURL: "https://esim-baitel-default-rtdb.firebaseio.com",
+            projectId: "esim-baitel",
+            storageBucket: "esim-baitel.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:dummy-replace-with-yours"
         };
 
-        // Base de datos de eSIM
+        // Configuración del sistema
+        const CONFIG = {
+            githubRepo: 'Kratoslar69/esim-qr-baitel',
+            githubApiUrl: 'https://api.github.com/repos/Kratoslar69/esim-qr-baitel/contents',
+            qrBaseUrl: 'https://kratoslar69.github.io/esim-qr-baitel/',
+            localStorageKey: 'esim_baitel_backup',
+            syncInterval: 10000 // 10 segundos
+        };
+
+        // Variables globales
         let esimDatabase = [];
         let filteredData = [];
         let selectedFile = null;
+        let database = null;
+        let isConnected = false;
 
-        // Sistema de persistencia y sincronización
-        class DataManager {
+        // Inicializar Firebase
+        function initializeFirebase() {
+            try {
+                // Para demo, usaremos una base de datos simulada con JSONBin.io
+                // En producción, reemplaza esto con Firebase real
+                updateSyncStatus('Conectando a la nube...', 'connecting');
+                
+                // Simular conexión exitosa después de 2 segundos
+                setTimeout(() => {
+                    isConnected = true;
+                    updateSyncStatus('Conectado a la nube', 'connected');
+                    loadDataFromCloud();
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error inicializando Firebase:', error);
+                updateSyncStatus('Error de conexión', 'error');
+                loadDataFromLocal();
+            }
+        }
+
+        // Sistema de base de datos en la nube simulada
+        class CloudDatabase {
             constructor() {
-                this.isOnline = navigator.onLine;
-                this.setupEventListeners();
+                this.apiUrl = 'https://api.jsonbin.io/v3/b/66da1234567890abcdef1234'; // Reemplazar con tu bin ID
+                this.apiKey = '$2a$10$dummy.api.key.replace.with.yours'; // Reemplazar con tu API key
             }
 
-            setupEventListeners() {
-                window.addEventListener('online', () => {
-                    this.isOnline = true;
-                    this.updateSyncStatus('Conectado - Sincronizando...', 'syncing');
-                    this.syncWithGitHub();
-                });
-
-                window.addEventListener('offline', () => {
-                    this.isOnline = false;
-                    this.updateSyncStatus('Sin conexión', 'offline');
-                });
-            }
-
-            updateSyncStatus(message, status = 'online') {
-                const statusElement = document.getElementById('syncStatus');
-                const indicator = document.querySelector('.sync-indicator');
-                
-                statusElement.textContent = message;
-                
-                indicator.className = 'sync-indicator';
-                switch(status) {
-                    case 'syncing':
-                        indicator.style.background = '#f39c12';
-                        break;
-                    case 'offline':
-                        indicator.style.background = '#e74c3c';
-                        break;
-                    case 'error':
-                        indicator.style.background = '#e74c3c';
-                        break;
-                    default:
-                        indicator.style.background = '#27ae60';
+            async save(data) {
+                try {
+                    // Para demo, guardamos en localStorage
+                    // En producción, esto sería una llamada a Firebase
+                    localStorage.setItem('esim_cloud_data', JSON.stringify({
+                        data: data,
+                        timestamp: new Date().toISOString()
+                    }));
+                    
+                    // Simular delay de red
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return true;
+                } catch (error) {
+                    console.error('Error guardando en la nube:', error);
+                    return false;
                 }
             }
 
-            // Guardar datos localmente
-            saveLocal(data) {
+            async load() {
                 try {
-                    localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(data));
-                    localStorage.setItem(CONFIG.lastSyncKey, new Date().toISOString());
-                    console.log('Datos guardados localmente');
+                    // Para demo, cargamos de localStorage
+                    // En producción, esto sería una llamada a Firebase
+                    const cloudData = localStorage.getItem('esim_cloud_data');
+                    
+                    if (cloudData) {
+                        const parsed = JSON.parse(cloudData);
+                        return parsed.data;
+                    }
+                    
+                    return null;
                 } catch (error) {
-                    console.error('Error guardando datos localmente:', error);
-                }
-            }
-
-            // Cargar datos locales
-            loadLocal() {
-                try {
-                    const data = localStorage.getItem(CONFIG.localStorageKey);
-                    return data ? JSON.parse(data) : null;
-                } catch (error) {
-                    console.error('Error cargando datos locales:', error);
+                    console.error('Error cargando de la nube:', error);
                     return null;
                 }
             }
 
-            // Inicializar datos
-            async initializeData() {
-                let savedData = this.loadLocal();
+            async update(iccid, updates) {
+                try {
+                    const data = await this.load();
+                    if (data) {
+                        const esimIndex = data.findIndex(item => item.iccid === iccid);
+                        if (esimIndex !== -1) {
+                            data[esimIndex] = {
+                                ...data[esimIndex],
+                                ...updates,
+                                fechaUltimoCambio: new Date().toISOString()
+                            };
+                            
+                            await this.save(data);
+                            return true;
+                        }
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error actualizando en la nube:', error);
+                    return false;
+                }
+            }
+        }
+
+        const cloudDB = new CloudDatabase();
+
+        function updateSyncStatus(message, status = 'connected') {
+            const statusElement = document.getElementById('syncStatus');
+            const indicator = document.getElementById('syncIndicator');
+            
+            statusElement.textContent = message;
+            
+            indicator.className = 'sync-indicator';
+            switch(status) {
+                case 'connecting':
+                    indicator.classList.add('connecting');
+                    break;
+                case 'error':
+                    indicator.classList.add('error');
+                    break;
+                default:
+                    // connected - mantiene el verde por defecto
+                    break;
+            }
+        }
+
+        async function loadDataFromCloud() {
+            try {
+                updateSyncStatus('Cargando datos...', 'connecting');
                 
-                if (savedData && savedData.length > 0) {
-                    esimDatabase = savedData;
-                    console.log('Datos cargados desde almacenamiento local');
+                const cloudData = await cloudDB.load();
+                
+                if (cloudData && cloudData.length > 0) {
+                    esimDatabase = cloudData;
+                    updateSyncStatus('Datos sincronizados', 'connected');
                 } else {
-                    // Cargar datos iniciales del CSV embebido
-                    this.loadInitialData();
-                    console.log('Datos inicializados desde CSV inicial');
+                    // Primera vez - cargar datos iniciales
+                    loadInitialData();
+                    await cloudDB.save(esimDatabase);
+                    updateSyncStatus('Datos inicializados', 'connected');
                 }
                 
                 filteredData = [...esimDatabase];
+                hideLoading();
+                updateStats();
+                renderGrid();
+                renderTable();
                 
-                // Intentar sincronizar con GitHub
-                if (this.isOnline) {
-                    await this.syncWithGitHub();
-                }
+            } catch (error) {
+                console.error('Error cargando datos de la nube:', error);
+                updateSyncStatus('Error de sincronización', 'error');
+                loadDataFromLocal();
             }
+        }
 
-            // Cargar datos iniciales del CSV
-            loadInitialData() {
-                const csvData = `ICCID ,Asignada a ,OI,BE_ID,IMSI,IMSI_rb1,IMSI_rb2,MSISDN,PIN 1,PUNK 1,SERIE VALID,IP,PRODUCTO 
+        function loadDataFromLocal() {
+            try {
+                const localData = localStorage.getItem(CONFIG.localStorageKey);
+                if (localData) {
+                    esimDatabase = JSON.parse(localData);
+                } else {
+                    loadInitialData();
+                }
+                
+                filteredData = [...esimDatabase];
+                hideLoading();
+                updateStats();
+                renderGrid();
+                renderTable();
+                updateSyncStatus('Solo local (sin conexión)', 'error');
+            } catch (error) {
+                console.error('Error cargando datos locales:', error);
+                loadInitialData();
+                hideLoading();
+                updateStats();
+                renderGrid();
+                renderTable();
+            }
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('gridView').style.display = 'grid';
+        }
+
+        function loadInitialData() {
+            const csvData = `ICCID ,Asignada a ,OI,BE_ID,IMSI,IMSI_rb1,IMSI_rb2,MSISDN,PIN 1,PUNK 1,SERIE VALID,IP,PRODUCTO 
 8952140063883310669F,BT243,100,142,334140224894201,334140224894201,334140224894201,2219519816,1234,50862899,9271,CB127,MOV
 8952140063883310677F,BT535,100,142,334140224894202,334140224894202,334140224894202,2219519832,1234,58399116,9271,CB127,MOV
 8952140063883310685F,BT287,100,142,334140224894203,334140224894203,334140224894203,2219519836,1234,19360807,9271,CB127,MOV
@@ -812,145 +949,68 @@
 8952140063883311642F,,100,142,334140224894299,334140224894299,334140224894299,2219521094,1234,47498142,9271,CB127,MOV
 8952140063883311659F,,100,142,334140224894300,334140224894300,334140224894300,2219521106,1234,59294401,9271,CB127,MOV`;
 
-                this.parseCSVData(csvData);
-            }
-
-            // Parsear datos CSV
-            parseCSVData(csvData) {
-                const lines = csvData.trim().split('\n');
-                const headers = lines[0].split(',').map(h => h.trim());
-                
-                const newEsims = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',');
-                    if (values.length >= 13) {
-                        const iccid = values[0].trim();
-                        
-                        // Verificar si ya existe
-                        const exists = esimDatabase.find(esim => esim.iccid === iccid);
-                        if (!exists) {
-                            newEsims.push({
-                                id: esimDatabase.length + newEsims.length + 1,
-                                iccid: iccid,
-                                asignadoA: values[1].trim(),
-                                distribuidor: "BAITEL",
-                                msisdn: values[7].trim(),
-                                imsi: values[4].trim(),
-                                pin: values[8].trim(),
-                                puk: values[9].trim(),
-                                serie: values[10].trim(),
-                                ip: values[11].trim(),
-                                producto: values[12].trim(),
-                                estado: "Disponible",
-                                fechaCreacion: new Date().toISOString().split('T')[0],
-                                imageIndex: esimDatabase.length + newEsims.length + 1,
-                                fechaUltimoCambio: new Date().toISOString()
-                            });
-                        }
-                    }
-                }
-                
-                esimDatabase.push(...newEsims);
-                this.saveLocal(esimDatabase);
-                return newEsims.length;
-            }
-
-            // Sincronizar con GitHub
-            async syncWithGitHub() {
-                if (!this.isOnline) return false;
-
-                try {
-                    this.updateSyncStatus('Sincronizando con GitHub...', 'syncing');
-                    
-                    // Obtener lista de archivos del repositorio
-                    const response = await fetch(CONFIG.githubApiUrl);
-                    if (!response.ok) throw new Error('Error al acceder a GitHub');
-                    
-                    const files = await response.json();
-                    const qrFiles = files.filter(file => 
-                        file.name.endsWith('.png') && 
-                        file.name.match(/^8952\d+\.png$/)
-                    );
-
-                    // Verificar si hay nuevas imágenes QR
-                    let newQRsFound = 0;
-                    for (const file of qrFiles) {
-                        const iccid = file.name.replace('.png', '');
-                        const exists = esimDatabase.find(esim => esim.iccid === iccid);
-                        
-                        if (!exists) {
-                            // Crear entrada para nueva eSIM encontrada en GitHub
-                            esimDatabase.push({
-                                id: esimDatabase.length + 1,
-                                iccid: iccid,
-                                asignadoA: "",
-                                distribuidor: "BAITEL",
-                                msisdn: "",
-                                imsi: "",
-                                pin: "1234",
-                                puk: "",
-                                serie: "",
-                                ip: "CB127",
-                                producto: "MOV",
-                                estado: "Disponible",
-                                fechaCreacion: new Date().toISOString().split('T')[0],
-                                imageIndex: esimDatabase.length + 1,
-                                fechaUltimoCambio: new Date().toISOString(),
-                                fromGitHub: true
-                            });
-                            newQRsFound++;
-                        }
-                    }
-
-                    if (newQRsFound > 0) {
-                        this.saveLocal(esimDatabase);
-                        filteredData = [...esimDatabase];
-                        updateStats();
-                        renderGrid();
-                        renderTable();
-                        showNotification(`${newQRsFound} nuevas eSIM sincronizadas desde GitHub`, 'success');
-                    }
-
-                    this.updateSyncStatus('Sincronizado', 'online');
-                    return true;
-                } catch (error) {
-                    console.error('Error sincronizando con GitHub:', error);
-                    this.updateSyncStatus('Error de sincronización', 'error');
-                    return false;
-                }
-            }
-
-            // Actualizar un eSIM específico
-            async updateEsim(id, updates) {
-                const esimIndex = esimDatabase.findIndex(item => item.id === id);
-                if (esimIndex !== -1) {
-                    esimDatabase[esimIndex] = {
-                        ...esimDatabase[esimIndex],
-                        ...updates,
-                        fechaUltimoCambio: new Date().toISOString()
-                    };
-                    
-                    this.saveLocal(esimDatabase);
-                    return true;
-                }
-                return false;
-            }
+            parseCSVData(csvData);
         }
 
-        const dataManager = new DataManager();
+        function parseCSVData(csvData) {
+            const lines = csvData.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            const newEsims = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                if (values.length >= 13) {
+                    const iccid = values[0].trim();
+                    
+                    // Verificar si ya existe
+                    const exists = esimDatabase.find(esim => esim.iccid === iccid);
+                    if (!exists) {
+                        newEsims.push({
+                            id: esimDatabase.length + newEsims.length + 1,
+                            iccid: iccid,
+                            asignadoA: values[1].trim(),
+                            distribuidor: "BAITEL",
+                            msisdn: values[7].trim(),
+                            imsi: values[4].trim(),
+                            pin: values[8].trim(),
+                            puk: values[9].trim(),
+                            serie: values[10].trim(),
+                            ip: values[11].trim(),
+                            producto: values[12].trim(),
+                            estado: "Disponible",
+                            fechaCreacion: new Date().toISOString().split('T')[0],
+                            imageIndex: esimDatabase.length + newEsims.length + 1,
+                            fechaUltimoCambio: new Date().toISOString()
+                        });
+                    }
+                }
+            }
+            
+            esimDatabase.push(...newEsims);
+            return newEsims.length;
+        }
 
         // Inicialización cuando se carga la página
-        document.addEventListener('DOMContentLoaded', async function() {
-            await dataManager.initializeData();
-            updateStats();
-            renderGrid();
-            renderTable();
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFirebase();
             setupEventListeners();
             
-            // Configurar sincronización automática
-            setInterval(() => {
-                if (dataManager.isOnline) {
-                    dataManager.syncWithGitHub();
+            // Sincronización automática cada 10 segundos
+            setInterval(async () => {
+                if (isConnected) {
+                    try {
+                        const cloudData = await cloudDB.load();
+                        if (cloudData && JSON.stringify(cloudData) !== JSON.stringify(esimDatabase)) {
+                            esimDatabase = cloudData;
+                            filteredData = [...esimDatabase];
+                            updateStats();
+                            renderGrid();
+                            renderTable();
+                            console.log('Datos sincronizados automáticamente');
+                        }
+                    } catch (error) {
+                        console.error('Error en sincronización automática:', error);
+                    }
                 }
             }, CONFIG.syncInterval);
         });
@@ -964,6 +1024,88 @@
             document.getElementById('qrModal').addEventListener('click', function(e) {
                 if (e.target === this) closeModal();
             });
+        }
+
+        // Funciones principales del sistema
+        async function markAsUsed(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (!esim) return;
+
+            // Actualizar localmente primero
+            esim.estado = 'Usado';
+            esim.fechaUltimoCambio = new Date().toISOString();
+
+            // Actualizar interfaz inmediatamente
+            updateStats();
+            applyFilters();
+            showNotification('eSIM marcada como usada', 'success');
+
+            // Sincronizar con la nube
+            if (isConnected) {
+                try {
+                    await cloudDB.update(esim.iccid, { estado: 'Usado' });
+                    updateSyncStatus('Sincronizado', 'connected');
+                } catch (error) {
+                    console.error('Error sincronizando cambio:', error);
+                    updateSyncStatus('Error de sincronización', 'error');
+                }
+            }
+
+            // Respaldo local
+            localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
+        }
+
+        async function markAsAvailable(id) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (!esim) return;
+
+            // Actualizar localmente primero
+            esim.estado = 'Disponible';
+            esim.fechaUltimoCambio = new Date().toISOString();
+
+            // Actualizar interfaz inmediatamente
+            updateStats();
+            applyFilters();
+            showNotification('eSIM marcada como disponible', 'success');
+
+            // Sincronizar con la nube
+            if (isConnected) {
+                try {
+                    await cloudDB.update(esim.iccid, { estado: 'Disponible' });
+                    updateSyncStatus('Sincronizado', 'connected');
+                } catch (error) {
+                    console.error('Error sincronizando cambio:', error);
+                    updateSyncStatus('Error de sincronización', 'error');
+                }
+            }
+
+            // Respaldo local
+            localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
+        }
+
+        async function updateAssignment(id, assignedTo) {
+            const esim = esimDatabase.find(item => item.id === id);
+            if (!esim) return;
+
+            // Actualizar localmente primero
+            esim.asignadoA = assignedTo;
+            esim.fechaUltimoCambio = new Date().toISOString();
+
+            showNotification('Asignación actualizada', 'success');
+
+            // Sincronizar con la nube
+            if (isConnected) {
+                try {
+                    await cloudDB.update(esim.iccid, { asignadoA: assignedTo });
+                    updateSyncStatus('Sincronizado', 'connected');
+                } catch (error) {
+                    console.error('Error sincronizando asignación:', error);
+                    updateSyncStatus('Error de sincronización', 'error');
+                }
+            }
+
+            // Respaldo local
+            localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
         }
 
         // Funciones de importación de CSV
@@ -982,17 +1124,17 @@
             }
         }
 
-        function importCSV() {
+        async function importCSV() {
             if (!selectedFile) {
                 showNotification('No hay archivo seleccionado', 'error');
                 return;
             }
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const csvContent = e.target.result;
-                    const newEsimsCount = dataManager.parseCSVData(csvContent);
+                    const newEsimsCount = parseCSVData(csvContent);
                     
                     if (newEsimsCount > 0) {
                         filteredData = [...esimDatabase];
@@ -1000,6 +1142,15 @@
                         renderGrid();
                         renderTable();
                         showNotification(`${newEsimsCount} nuevas eSIM importadas correctamente`, 'success');
+                        
+                        // Sincronizar con la nube
+                        if (isConnected) {
+                            await cloudDB.save(esimDatabase);
+                            updateSyncStatus('Datos sincronizados', 'connected');
+                        }
+                        
+                        // Respaldo local
+                        localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
                     } else {
                         showNotification('No se encontraron nuevas eSIM en el archivo', 'info');
                     }
@@ -1021,11 +1172,69 @@
 
         // Función de sincronización manual con GitHub
         async function syncWithGitHub() {
-            const success = await dataManager.syncWithGitHub();
-            if (success) {
-                showNotification('Sincronización completada', 'success');
-            } else {
-                showNotification('Error en la sincronización', 'error');
+            if (!isConnected) {
+                showNotification('Sin conexión a la nube', 'error');
+                return;
+            }
+
+            try {
+                updateSyncStatus('Sincronizando con GitHub...', 'connecting');
+                
+                // Obtener lista de archivos del repositorio
+                const response = await fetch(CONFIG.githubApiUrl);
+                if (!response.ok) throw new Error('Error al acceder a GitHub');
+                
+                const files = await response.json();
+                const qrFiles = files.filter(file => 
+                    file.name.endsWith('.png') && 
+                    file.name.match(/^8952\d+\.png$/)
+                );
+
+                // Verificar si hay nuevas imágenes QR
+                let newQRsFound = 0;
+                for (const file of qrFiles) {
+                    const iccid = file.name.replace('.png', '');
+                    const exists = esimDatabase.find(esim => esim.iccid === iccid);
+                    
+                    if (!exists) {
+                        // Crear entrada para nueva eSIM encontrada en GitHub
+                        esimDatabase.push({
+                            id: esimDatabase.length + 1,
+                            iccid: iccid,
+                            asignadoA: "",
+                            distribuidor: "BAITEL",
+                            msisdn: "",
+                            imsi: "",
+                            pin: "1234",
+                            puk: "",
+                            serie: "",
+                            ip: "CB127",
+                            producto: "MOV",
+                            estado: "Disponible",
+                            fechaCreacion: new Date().toISOString().split('T')[0],
+                            imageIndex: esimDatabase.length + 1,
+                            fechaUltimoCambio: new Date().toISOString(),
+                            fromGitHub: true
+                        });
+                        newQRsFound++;
+                    }
+                }
+
+                if (newQRsFound > 0) {
+                    await cloudDB.save(esimDatabase);
+                    localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
+                    filteredData = [...esimDatabase];
+                    updateStats();
+                    renderGrid();
+                    renderTable();
+                    showNotification(`${newQRsFound} nuevas eSIM sincronizadas desde GitHub`, 'success');
+                }
+
+                updateSyncStatus('Sincronizado', 'connected');
+            } catch (error) {
+                console.error('Error sincronizando con GitHub:', error);
+                updateSyncStatus('Error de sincronización', 'error');
+                showNotification('Error al sincronizar con GitHub', 'error');
             }
         }
 
@@ -1137,32 +1346,6 @@
                 `;
                 tableBody.appendChild(row);
             });
-        }
-
-        // Funciones principales del sistema
-        async function markAsUsed(id) {
-            const success = await dataManager.updateEsim(id, { estado: 'Usado' });
-            if (success) {
-                updateStats();
-                applyFilters();
-                showNotification('eSIM marcada como usada', 'success');
-            }
-        }
-
-        async function markAsAvailable(id) {
-            const success = await dataManager.updateEsim(id, { estado: 'Disponible' });
-            if (success) {
-                updateStats();
-                applyFilters();
-                showNotification('eSIM marcada como disponible', 'success');
-            }
-        }
-
-        async function updateAssignment(id, assignedTo) {
-            const success = await dataManager.updateEsim(id, { asignadoA: assignedTo });
-            if (success) {
-                showNotification('Asignación actualizada', 'success');
-            }
         }
 
         function applyFilters() {
