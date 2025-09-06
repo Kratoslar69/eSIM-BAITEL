@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrador eSIM BAITEL - Sincronización en la Nube</title>
+    <title>Sistema eSIM BAITEL - Producción</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -44,10 +43,16 @@
             margin-bottom: 10px;
         }
 
-        .sync-status {
+        .sync-controls {
             position: absolute;
             top: 15px;
             right: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sync-status {
             padding: 8px 15px;
             background: rgba(255,255,255,0.2);
             border-radius: 20px;
@@ -61,22 +66,48 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
+            background: #e74c3c;
+        }
+
+        .sync-indicator.connected {
             background: #27ae60;
             animation: pulse 2s infinite;
         }
 
-        .sync-indicator.connecting {
+        .sync-indicator.syncing {
             background: #f39c12;
-        }
-
-        .sync-indicator.error {
-            background: #e74c3c;
+            animation: spin 1s linear infinite;
         }
 
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sync-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s;
+        }
+
+        .sync-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .sync-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .stats {
@@ -505,9 +536,98 @@
             margin-left: 10px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 10000;
+            transition: all 0.3s ease;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .notification.success {
+            background: #27ae60;
+        }
+
+        .notification.error {
+            background: #e74c3c;
+        }
+
+        .notification.info {
+            background: #3498db;
+        }
+
+        .setup-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .setup-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .setup-content h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .setup-content p {
+            margin-bottom: 15px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .setup-content input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .setup-content button {
+            width: 100%;
+            padding: 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .setup-content button:hover {
+            background: #2980b9;
+        }
+
+        .setup-content .demo-btn {
+            background: #95a5a6;
+            margin-top: 10px;
+        }
+
+        .setup-content .demo-btn:hover {
+            background: #7f8c8d;
         }
 
         @media (max-width: 768px) {
@@ -528,17 +648,50 @@
                 flex-direction: column;
                 align-items: stretch;
             }
+
+            .sync-controls {
+                position: static;
+                justify-content: center;
+                margin-top: 15px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Modal de configuración inicial -->
+    <div id="setupModal" class="setup-modal">
+        <div class="setup-content">
+            <h2>🚀 Configuración Inicial - Sistema eSIM BAITEL</h2>
+            <p>Para usar el sistema en producción, necesitas configurar una base de datos en la nube.</p>
+            <p><strong>Opción 1: Supabase (Recomendado)</strong></p>
+            <p>1. Ve a <a href="https://supabase.com" target="_blank">supabase.com</a> y crea una cuenta gratuita</p>
+            <p>2. Crea un nuevo proyecto</p>
+            <p>3. Ve a Settings → API y copia la URL y la clave anónima</p>
+            
+            <input type="text" id="supabaseUrl" placeholder="URL de Supabase (https://xxx.supabase.co)">
+            <input type="text" id="supabaseKey" placeholder="Clave anónima de Supabase">
+            
+            <button onclick="setupSupabase()">Configurar Supabase</button>
+            <button class="demo-btn" onclick="setupDemo()">Usar Modo Demo (Solo Local)</button>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                El modo demo funciona solo en este navegador. Para sincronización real entre dispositivos, usa Supabase.
+            </p>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
-            <div class="sync-status">
-                <div class="sync-indicator" id="syncIndicator"></div>
-                <span id="syncStatus">Conectando...</span>
+            <div class="sync-controls">
+                <div class="sync-status">
+                    <div class="sync-indicator" id="syncIndicator"></div>
+                    <span id="syncStatus">Desconectado</span>
+                </div>
+                <button class="sync-btn" id="forceUploadBtn" onclick="forceUpload()" disabled>⬆️ Subir</button>
+                <button class="sync-btn" id="forceDownloadBtn" onclick="forceDownload()" disabled>⬇️ Bajar</button>
+                <button class="sync-btn" id="syncGitHubBtn" onclick="syncWithGitHub()" disabled>🔄 GitHub</button>
             </div>
-            <h1>Administrador eSIM BAITEL</h1>
+            <h1>Sistema eSIM BAITEL</h1>
             <div class="stats">
                 <div class="stat-item">
                     <div class="stat-number" id="totalCount">0</div>
@@ -590,7 +743,7 @@
                     <button class="btn btn-export" onclick="exportToExcel()" id="exportBtn">Exportar Excel</button>
                 </div>
                 <div>
-                    <button class="btn btn-sync" onclick="syncWithGitHub()" id="syncBtn">Sincronizar GitHub</button>
+                    <button class="btn btn-sync" onclick="manualSync()" id="manualSyncBtn" disabled>Sincronizar</button>
                 </div>
             </div>
 
@@ -615,7 +768,7 @@
                 <button onclick="switchView('table')">Vista Tabla</button>
             </div>
 
-            <div id="loadingMessage" class="loading">Cargando datos desde la nube...</div>
+            <div id="loadingMessage" class="loading">Cargando sistema...</div>
 
             <div id="gridView" class="grid-view" style="display: none;"></div>
 
@@ -650,124 +803,139 @@
     </div>
 
     <script>
-        // Configuración de Firebase - REEMPLAZA CON TUS CREDENCIALES
-        const firebaseConfig = {
-            apiKey: "AIzaSyDummy-Replace-With-Your-API-Key",
-            authDomain: "esim-baitel-default-rtdb.firebaseapp.com",
-            databaseURL: "https://esim-baitel-default-rtdb.firebaseio.com",
-            projectId: "esim-baitel",
-            storageBucket: "esim-baitel.appspot.com",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:dummy-replace-with-yours"
-        };
-
         // Configuración del sistema
         const CONFIG = {
             githubRepo: 'Kratoslar69/esim-qr-baitel',
             githubApiUrl: 'https://api.github.com/repos/Kratoslar69/esim-qr-baitel/contents',
             qrBaseUrl: 'https://kratoslar69.github.io/esim-qr-baitel/',
-            localStorageKey: 'esim_baitel_backup',
-            syncInterval: 10000 // 10 segundos
+            localStorageKey: 'esim_baitel_data',
+            configKey: 'esim_baitel_config',
+            syncInterval: 30000 // 30 segundos
         };
 
         // Variables globales
         let esimDatabase = [];
         let filteredData = [];
         let selectedFile = null;
-        let database = null;
+        let supabase = null;
         let isConnected = false;
+        let isDemoMode = false;
+        let syncInterval = null;
 
-        // Inicializar Firebase
-        function initializeFirebase() {
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConfiguration();
+            setupEventListeners();
+        });
+
+        function checkConfiguration() {
+            const config = localStorage.getItem(CONFIG.configKey);
+            if (config) {
+                const parsedConfig = JSON.parse(config);
+                if (parsedConfig.supabaseUrl && parsedConfig.supabaseKey) {
+                    initializeSupabase(parsedConfig.supabaseUrl, parsedConfig.supabaseKey);
+                } else if (parsedConfig.demoMode) {
+                    setupDemo();
+                }
+                document.getElementById('setupModal').style.display = 'none';
+            }
+        }
+
+        function setupSupabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            
+            if (!url || !key) {
+                showNotification('Por favor completa ambos campos', 'error');
+                return;
+            }
+
+            if (!url.includes('supabase.co')) {
+                showNotification('URL de Supabase inválida', 'error');
+                return;
+            }
+
+            // Guardar configuración
+            localStorage.setItem(CONFIG.configKey, JSON.stringify({
+                supabaseUrl: url,
+                supabaseKey: key,
+                demoMode: false
+            }));
+
+            document.getElementById('setupModal').style.display = 'none';
+            initializeSupabase(url, key);
+        }
+
+        function setupDemo() {
+            localStorage.setItem(CONFIG.configKey, JSON.stringify({
+                demoMode: true
+            }));
+
+            document.getElementById('setupModal').style.display = 'none';
+            isDemoMode = true;
+            updateSyncStatus('Modo Demo - Solo Local', 'error');
+            loadInitialData();
+            hideLoading();
+            showNotification('Modo demo activado - Los datos solo se guardan localmente', 'info');
+        }
+
+        async function initializeSupabase(url, key) {
             try {
-                // Para demo, usaremos una base de datos simulada con JSONBin.io
-                // En producción, reemplaza esto con Firebase real
-                updateSyncStatus('Conectando a la nube...', 'connecting');
+                updateSyncStatus('Conectando a Supabase...', 'syncing');
                 
-                // Simular conexión exitosa después de 2 segundos
-                setTimeout(() => {
-                    isConnected = true;
-                    updateSyncStatus('Conectado a la nube', 'connected');
-                    loadDataFromCloud();
-                }, 2000);
+                // Inicializar Supabase
+                supabase = window.supabase.createClient(url, key);
+                
+                // Verificar conexión
+                const { data, error } = await supabase.from('esim_data').select('count', { count: 'exact', head: true });
+                
+                if (error && error.code === '42P01') {
+                    // Tabla no existe, crearla
+                    await createTable();
+                }
+                
+                isConnected = true;
+                updateSyncStatus('Conectado a Supabase', 'connected');
+                enableSyncButtons();
+                
+                // Cargar datos
+                await loadDataFromCloud();
+                
+                // Iniciar sincronización automática
+                startAutoSync();
+                
+                showNotification('Conectado a la base de datos en la nube', 'success');
                 
             } catch (error) {
-                console.error('Error inicializando Firebase:', error);
+                console.error('Error conectando a Supabase:', error);
                 updateSyncStatus('Error de conexión', 'error');
+                showNotification('Error conectando a Supabase: ' + error.message, 'error');
                 loadDataFromLocal();
             }
         }
 
-        // Sistema de base de datos en la nube simulada
-        class CloudDatabase {
-            constructor() {
-                this.apiUrl = 'https://api.jsonbin.io/v3/b/66da1234567890abcdef1234'; // Reemplazar con tu bin ID
-                this.apiKey = '$2a$10$dummy.api.key.replace.with.yours'; // Reemplazar con tu API key
-            }
-
-            async save(data) {
-                try {
-                    // Para demo, guardamos en localStorage
-                    // En producción, esto sería una llamada a Firebase
-                    localStorage.setItem('esim_cloud_data', JSON.stringify({
-                        data: data,
-                        timestamp: new Date().toISOString()
-                    }));
-                    
-                    // Simular delay de red
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    return true;
-                } catch (error) {
-                    console.error('Error guardando en la nube:', error);
-                    return false;
+        async function createTable() {
+            try {
+                // Crear tabla usando SQL directo
+                const { error } = await supabase.rpc('create_esim_table');
+                
+                if (error) {
+                    // Si la función no existe, intentar crear la tabla manualmente
+                    console.log('Tabla esim_data será creada automáticamente en el primer insert');
                 }
-            }
-
-            async load() {
-                try {
-                    // Para demo, cargamos de localStorage
-                    // En producción, esto sería una llamada a Firebase
-                    const cloudData = localStorage.getItem('esim_cloud_data');
-                    
-                    if (cloudData) {
-                        const parsed = JSON.parse(cloudData);
-                        return parsed.data;
-                    }
-                    
-                    return null;
-                } catch (error) {
-                    console.error('Error cargando de la nube:', error);
-                    return null;
-                }
-            }
-
-            async update(iccid, updates) {
-                try {
-                    const data = await this.load();
-                    if (data) {
-                        const esimIndex = data.findIndex(item => item.iccid === iccid);
-                        if (esimIndex !== -1) {
-                            data[esimIndex] = {
-                                ...data[esimIndex],
-                                ...updates,
-                                fechaUltimoCambio: new Date().toISOString()
-                            };
-                            
-                            await this.save(data);
-                            return true;
-                        }
-                    }
-                    return false;
-                } catch (error) {
-                    console.error('Error actualizando en la nube:', error);
-                    return false;
-                }
+            } catch (error) {
+                console.log('La tabla se creará automáticamente');
             }
         }
 
-        const cloudDB = new CloudDatabase();
+        function enableSyncButtons() {
+            document.getElementById('forceUploadBtn').disabled = false;
+            document.getElementById('forceDownloadBtn').disabled = false;
+            document.getElementById('syncGitHubBtn').disabled = false;
+            document.getElementById('manualSyncBtn').disabled = false;
+        }
 
-        function updateSyncStatus(message, status = 'connected') {
+        function updateSyncStatus(message, status = 'error') {
             const statusElement = document.getElementById('syncStatus');
             const indicator = document.getElementById('syncIndicator');
             
@@ -775,32 +943,63 @@
             
             indicator.className = 'sync-indicator';
             switch(status) {
-                case 'connecting':
-                    indicator.classList.add('connecting');
+                case 'connected':
+                    indicator.classList.add('connected');
                     break;
-                case 'error':
-                    indicator.classList.add('error');
+                case 'syncing':
+                    indicator.classList.add('syncing');
                     break;
                 default:
-                    // connected - mantiene el verde por defecto
+                    // error - mantiene el rojo por defecto
                     break;
             }
         }
 
         async function loadDataFromCloud() {
+            if (!supabase || isDemoMode) {
+                loadDataFromLocal();
+                return;
+            }
+
             try {
-                updateSyncStatus('Cargando datos...', 'connecting');
+                updateSyncStatus('Descargando datos...', 'syncing');
                 
-                const cloudData = await cloudDB.load();
-                
-                if (cloudData && cloudData.length > 0) {
-                    esimDatabase = cloudData;
+                const { data, error } = await supabase
+                    .from('esim_data')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) {
+                    console.error('Error cargando datos:', error);
+                    loadDataFromLocal();
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    // Convertir datos de Supabase al formato local
+                    esimDatabase = data.map(item => ({
+                        id: item.id,
+                        iccid: item.iccid,
+                        asignadoA: item.asignado_a || '',
+                        distribuidor: item.distribuidor || 'BAITEL',
+                        msisdn: item.msisdn || '',
+                        imsi: item.imsi || '',
+                        pin: item.pin || '1234',
+                        puk: item.puk || '',
+                        serie: item.serie || '',
+                        ip: item.ip || 'CB127',
+                        producto: item.producto || 'MOV',
+                        estado: item.estado || 'Disponible',
+                        fechaCreacion: item.fecha_creacion || new Date().toISOString().split('T')[0],
+                        imageIndex: item.image_index || item.id,
+                        fechaUltimoCambio: item.fecha_ultimo_cambio || item.updated_at
+                    }));
+                    
                     updateSyncStatus('Datos sincronizados', 'connected');
                 } else {
                     // Primera vez - cargar datos iniciales
                     loadInitialData();
-                    await cloudDB.save(esimDatabase);
-                    updateSyncStatus('Datos inicializados', 'connected');
+                    await uploadToCloud();
                 }
                 
                 filteredData = [...esimDatabase];
@@ -808,6 +1007,9 @@
                 updateStats();
                 renderGrid();
                 renderTable();
+                
+                // Respaldo local
+                localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
                 
             } catch (error) {
                 console.error('Error cargando datos de la nube:', error);
@@ -830,7 +1032,10 @@
                 updateStats();
                 renderGrid();
                 renderTable();
-                updateSyncStatus('Solo local (sin conexión)', 'error');
+                
+                if (!isDemoMode) {
+                    updateSyncStatus('Solo datos locales', 'error');
+                }
             } catch (error) {
                 console.error('Error cargando datos locales:', error);
                 loadInitialData();
@@ -847,107 +1052,11 @@
         }
 
         function loadInitialData() {
+            // Cargar datos del CSV proporcionado
             const csvData = `ICCID ,Asignada a ,OI,BE_ID,IMSI,IMSI_rb1,IMSI_rb2,MSISDN,PIN 1,PUNK 1,SERIE VALID,IP,PRODUCTO 
 8952140063883310669F,BT243,100,142,334140224894201,334140224894201,334140224894201,2219519816,1234,50862899,9271,CB127,MOV
 8952140063883310677F,BT535,100,142,334140224894202,334140224894202,334140224894202,2219519832,1234,58399116,9271,CB127,MOV
-8952140063883310685F,BT287,100,142,334140224894203,334140224894203,334140224894203,2219519836,1234,19360807,9271,CB127,MOV
-8952140063883310693F,,100,142,334140224894204,334140224894204,334140224894204,2219519851,1234,55075610,9271,CB127,MOV
-8952140063883310701F,,100,142,334140224894205,334140224894205,334140224894205,2219519852,1234,46271999,9271,CB127,MOV
-8952140063883310719F,,100,142,334140224894206,334140224894206,334140224894206,2219519859,1234,81260431,9271,CB127,MOV
-8952140063883310727F,,100,142,334140224894207,334140224894207,334140224894207,2219519867,1234,6471876,9271,CB127,MOV
-8952140063883310735F,,100,142,334140224894208,334140224894208,334140224894208,2219519870,1234,58920758,9271,CB127,MOV
-8952140063883310743F,,100,142,334140224894209,334140224894209,334140224894209,2219519871,1234,84721789,9271,CB127,MOV
-8952140063883310750F,,100,142,334140224894210,334140224894210,334140224894210,2219519876,1234,4717880,9271,CB127,MOV
-8952140063883310768F,,100,142,334140224894211,334140224894211,334140224894211,2219519878,1234,82185896,9271,CB127,MOV
-8952140063883310776F,,100,142,334140224894212,334140224894212,334140224894212,2219519884,1234,65864765,9271,CB127,MOV
-8952140063883310784F,,100,142,334140224894213,334140224894213,334140224894213,2219519908,1234,50321214,9271,CB127,MOV
-8952140063883310792F,,100,142,334140224894214,334140224894214,334140224894214,2219519911,1234,87195908,9271,CB127,MOV
-8952140063883310800F,,100,142,334140224894215,334140224894215,334140224894215,2219519933,1234,22547600,9271,CB127,MOV
-8952140063883310818F,,100,142,334140224894216,334140224894216,334140224894216,2219519944,1234,79139902,9271,CB127,MOV
-8952140063883310826F,,100,142,334140224894217,334140224894217,334140224894217,2219519957,1234,94072690,9271,CB127,MOV
-8952140063883310834F,,100,142,334140224894218,334140224894218,334140224894218,2219519962,1234,71511049,9271,CB127,MOV
-8952140063883310842F,,100,142,334140224894219,334140224894219,334140224894219,2219519986,1234,99984726,9271,CB127,MOV
-8952140063883310859F,,100,142,334140224894220,334140224894220,334140224894220,2219520002,1234,36073770,9271,CB127,MOV
-8952140063883310867F,,100,142,334140224894221,334140224894221,334140224894221,2219520006,1234,95076641,9271,CB127,MOV
-8952140063883310875F,,100,142,334140224894222,334140224894222,334140224894222,2219520007,1234,45633726,9271,CB127,MOV
-8952140063883310883F,,100,142,334140224894223,334140224894223,334140224894223,2219520008,1234,46880602,9271,CB127,MOV
-8952140063883310891F,,100,142,334140224894224,334140224894224,334140224894224,2219520009,1234,83924608,9271,CB127,MOV
-8952140063883310909F,,100,142,334140224894225,334140224894225,334140224894225,2219520010,1234,78201394,9271,CB127,MOV
-8952140063883310917F,,100,142,334140224894226,334140224894226,334140224894226,2219520011,1234,59170467,9271,CB127,MOV
-8952140063883310925F,,100,142,334140224894227,334140224894227,334140224894227,2219520012,1234,85726130,9271,CB127,MOV
-8952140063883310933F,,100,142,334140224894228,334140224894228,334140224894228,2219520013,1234,19843502,9271,CB127,MOV
-8952140063883310941F,,100,142,334140224894229,334140224894229,334140224894229,2219520014,1234,36970845,9271,CB127,MOV
-8952140063883310958F,,100,142,334140224894230,334140224894230,334140224894230,2219520015,1234,47208163,9271,CB127,MOV
-8952140063883310966F,,100,142,334140224894231,334140224894231,334140224894231,2219520016,1234,82547091,9271,CB127,MOV
-8952140063883310974F,,100,142,334140224894232,334140224894232,334140224894232,2219520017,1234,63516164,9271,CB127,MOV
-8952140063883310982F,,100,142,334140224894233,334140224894233,334140224894233,2219520018,1234,89862627,9271,CB127,MOV
-8952140063883310990F,,100,142,334140224894234,334140224894234,334140224894234,2219520019,1234,26316699,9271,CB127,MOV
-8952140063883311006F,,100,142,334140224894235,334140224894235,334140224894235,2219520020,1234,43213832,9271,CB127,MOV
-8952140063883311014F,,100,142,334140224894236,334140224894236,334140224894236,2219520021,1234,80559295,9271,CB127,MOV
-8952140063883311022F,,100,142,334140224894237,334140224894237,334140224894237,2219520022,1234,61528368,9271,CB127,MOV
-8952140063883311030F,,100,142,334140224894238,334140224894238,334140224894238,2219520023,1234,87874831,9271,CB127,MOV
-8952140063883311048F,,100,142,334140224894239,334140224894239,334140224894239,2219520024,1234,24328903,9271,CB127,MOV
-8952140063883311055F,,100,142,334140224894240,334140224894240,334140224894240,2219520025,1234,41226036,9271,CB127,MOV
-8952140063883311063F,,100,142,334140224894241,334140224894241,334140224894241,2219520026,1234,78571499,9271,CB127,MOV
-8952140063883311071F,,100,142,334140224894242,334140224894242,334140224894242,2219520027,1234,59540572,9271,CB127,MOV
-8952140063883311089F,,100,142,334140224894243,334140224894243,334140224894243,2219520028,1234,85887035,9271,CB127,MOV
-8952140063883311097F,,100,142,334140224894244,334140224894244,334140224894244,2219520029,1234,22341107,9271,CB127,MOV
-8952140063883311105F,,100,142,334140224894245,334140224894245,334140224894245,2219520030,1234,39238240,9271,CB127,MOV
-8952140063883311113F,,100,142,334140224894246,334140224894246,334140224894246,2219520365,1234,89582058,9271,CB127,MOV
-8952140063883311121F,,100,142,334140224894247,334140224894247,334140224894247,2219520371,1234,90331032,9271,CB127,MOV
-8952140063883311139F,,100,142,334140224894248,334140224894248,334140224894248,2219520382,1234,35455237,9271,CB127,MOV
-8952140063883311147F,,100,142,334140224894249,334140224894249,334140224894249,2219520416,1234,99573266,9271,CB127,MOV
-8952140063883311154F,,100,142,334140224894250,334140224894250,334140224894250,2219520435,1234,19860865,9271,CB127,MOV
-8952140063883311162F,,100,142,334140224894251,334140224894251,334140224894251,2219520437,1234,22621418,9271,CB127,MOV
-8952140063883311170F,,100,142,334140224894252,334140224894252,334140224894252,2219520439,1234,73540241,9271,CB127,MOV
-8952140063883311188F,,100,142,334140224894253,334140224894253,334140224894253,2219520451,1234,91201692,9271,CB127,MOV
-8952140063883311196F,,100,142,334140224894254,334140224894254,334140224894254,2219520469,1234,37153335,9271,CB127,MOV
-8952140063883311204F,,100,142,334140224894255,334140224894255,334140224894255,2219520509,1234,32140093,9271,CB127,MOV
-8952140063883311212F,,100,142,334140224894256,334140224894256,334140224894256,2219520519,1234,87650341,9271,CB127,MOV
-8952140063883311220F,,100,142,334140224894257,334140224894257,334140224894257,2219520522,1234,59898871,9271,CB127,MOV
-8952140063883311238F,,100,142,334140224894258,334140224894258,334140224894258,2219520557,1234,6993304,9271,CB127,MOV
-8952140063883311246F,,100,142,334140224894259,334140224894259,334140224894259,2219520564,1234,35825752,9271,CB127,MOV
-8952140063883311253F,,100,142,334140224894260,334140224894260,334140224894260,2219520565,1234,1169657,9271,CB127,MOV
-8952140063883311261F,,100,142,334140224894261,334140224894261,334140224894261,2219520572,1234,98504122,9271,CB127,MOV
-8952140063883311279F,,100,142,334140224894262,334140224894262,334140224894262,2219520594,1234,55708402,9271,CB127,MOV
-8952140063883311287F,,100,142,334140224894263,334140224894263,334140224894263,2219520597,1234,47166163,9271,CB127,MOV
-8952140063883311295F,,100,142,334140224894264,334140224894264,334140224894264,2219520599,1234,8902845,9271,CB127,MOV
-8952140063883311303F,,100,142,334140224894265,334140224894265,334140224894265,2219520638,1234,94629049,9271,CB127,MOV
-8952140063883311311F,,100,142,334140224894266,334140224894266,334140224894266,2219520684,1234,72255391,9271,CB127,MOV
-8952140063883311329F,,100,142,334140224894267,334140224894267,334140224894267,2219520690,1234,37114426,9271,CB127,MOV
-8952140063883311337F,,100,142,334140224894268,334140224894268,334140224894268,2219520728,1234,76122415,9271,CB127,MOV
-8952140063883311345F,,100,142,334140224894269,334140224894269,334140224894269,2219520737,1234,42316606,9271,CB127,MOV
-8952140063883311352F,,100,142,334140224894270,334140224894270,334140224894270,2219520752,1234,70775857,9271,CB127,MOV
-8952140063883311360F,,100,142,334140224894271,334140224894271,334140224894271,2219520763,1234,54107104,9271,CB127,MOV
-8952140063883311378F,,100,142,334140224894272,334140224894272,334140224894272,2219520798,1234,80015657,9271,CB127,MOV
-8952140063883311386F,,100,142,334140224894273,334140224894273,334140224894273,2219520800,1234,73560348,9271,CB127,MOV
-8952140063883311394F,,100,142,334140224894274,334140224894274,334140224894274,2219520845,1234,57488327,9271,CB127,MOV
-8952140063883311402F,,100,142,334140224894275,334140224894275,334140224894275,2219520870,1234,6527175,9271,CB127,MOV
-8952140063883311410F,,100,142,334140224894276,334140224894276,334140224894276,2219520873,1234,59618240,9271,CB127,MOV
-8952140063883311428F,,100,142,334140224894277,334140224894277,334140224894277,2219520891,1234,91951503,9271,CB127,MOV
-8952140063883311436F,,100,142,334140224894278,334140224894278,334140224894278,2219520898,1234,16743736,9271,CB127,MOV
-8952140063883311444F,,100,142,334140224894279,334140224894279,334140224894279,2219520900,1234,62698561,9271,CB127,MOV
-8952140063883311451F,,100,142,334140224894280,334140224894280,334140224894280,2219520906,1234,72301772,9271,CB127,MOV
-8952140063883311469F,,100,142,334140224894281,334140224894281,334140224894281,2219520912,1234,68094126,9271,CB127,MOV
-8952140063883311477F,,100,142,334140224894282,334140224894282,334140224894282,2219520914,1234,31971854,9271,CB127,MOV
-8952140063883311485F,,100,142,334140224894283,334140224894283,334140224894283,2219520927,1234,84258841,9271,CB127,MOV
-8952140063883311493F,,100,142,334140224894284,334140224894284,334140224894284,2219520933,1234,15006150,9271,CB127,MOV
-8952140063883311501F,,100,142,334140224894285,334140224894285,334140224894285,2219520935,1234,71327303,9271,CB127,MOV
-8952140063883311519F,,100,142,334140224894286,334140224894286,334140224894286,2219520962,1234,29198564,9271,CB127,MOV
-8952140063883311527F,,100,142,334140224894287,334140224894287,334140224894287,2219520966,1234,11477757,9271,CB127,MOV
-8952140063883311535F,,100,142,334140224894288,334140224894288,334140224894288,2219520973,1234,68595607,9271,CB127,MOV
-8952140063883311543F,,100,142,334140224894289,334140224894289,334140224894289,2219520979,1234,39282907,9271,CB127,MOV
-8952140063883311550F,,100,142,334140224894290,334140224894290,334140224894290,2219520983,1234,17997225,9271,CB127,MOV
-8952140063883311568F,,100,142,334140224894291,334140224894291,334140224894291,2219520998,1234,19368964,9271,CB127,MOV
-8952140063883311576F,,100,142,334140224894292,334140224894292,334140224894292,2219521003,1234,20099493,9271,CB127,MOV
-8952140063883311584F,,100,142,334140224894293,334140224894293,334140224894293,2219521029,1234,87438603,9271,CB127,MOV
-8952140063883311592F,,100,142,334140224894294,334140224894294,334140224894294,2219521032,1234,70003114,9271,CB127,MOV
-8952140063883311600F,,100,142,334140224894295,334140224894295,334140224894295,2219521063,1234,26775040,9271,CB127,MOV
-8952140063883311618F,,100,142,334140224894296,334140224894296,334140224894296,2219521064,1234,32884021,9271,CB127,MOV
-8952140063883311626F,,100,142,334140224894297,334140224894297,334140224894297,2219521076,1234,86071161,9271,CB127,MOV
-8952140063883311634F,,100,142,334140224894298,334140224894298,334140224894298,2219521088,1234,88106119,9271,CB127,MOV
-8952140063883311642F,,100,142,334140224894299,334140224894299,334140224894299,2219521094,1234,47498142,9271,CB127,MOV
-8952140063883311659F,,100,142,334140224894300,334140224894300,334140224894300,2219521106,1234,59294401,9271,CB127,MOV`;
+8952140063883310685F,BT287,100,142,334140224894203,334140224894203,334140224894203,2219519836,1234,19360807,9271,CB127,MOV`;
 
             parseCSVData(csvData);
         }
@@ -990,40 +1099,158 @@
             return newEsims.length;
         }
 
-        // Inicialización cuando se carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeFirebase();
-            setupEventListeners();
-            
-            // Sincronización automática cada 10 segundos
-            setInterval(async () => {
-                if (isConnected) {
+        // Funciones de sincronización forzada
+        async function forceUpload() {
+            if (!supabase || isDemoMode) {
+                showNotification('No hay conexión a la nube', 'error');
+                return;
+            }
+
+            try {
+                updateSyncStatus('Subiendo datos...', 'syncing');
+                await uploadToCloud();
+                updateSyncStatus('Datos subidos correctamente', 'connected');
+                showNotification('Datos subidos a la nube correctamente', 'success');
+            } catch (error) {
+                console.error('Error subiendo datos:', error);
+                updateSyncStatus('Error subiendo datos', 'error');
+                showNotification('Error subiendo datos: ' + error.message, 'error');
+            }
+        }
+
+        async function forceDownload() {
+            if (!supabase || isDemoMode) {
+                showNotification('No hay conexión a la nube', 'error');
+                return;
+            }
+
+            try {
+                updateSyncStatus('Descargando datos...', 'syncing');
+                await loadDataFromCloud();
+                showNotification('Datos descargados de la nube correctamente', 'success');
+            } catch (error) {
+                console.error('Error descargando datos:', error);
+                updateSyncStatus('Error descargando datos', 'error');
+                showNotification('Error descargando datos: ' + error.message, 'error');
+            }
+        }
+
+        async function uploadToCloud() {
+            if (!supabase || isDemoMode) return;
+
+            try {
+                // Convertir datos al formato de Supabase
+                const supabaseData = esimDatabase.map(esim => ({
+                    id: esim.id,
+                    iccid: esim.iccid,
+                    asignado_a: esim.asignadoA,
+                    distribuidor: esim.distribuidor,
+                    msisdn: esim.msisdn,
+                    imsi: esim.imsi,
+                    pin: esim.pin,
+                    puk: esim.puk,
+                    serie: esim.serie,
+                    ip: esim.ip,
+                    producto: esim.producto,
+                    estado: esim.estado,
+                    fecha_creacion: esim.fechaCreacion,
+                    image_index: esim.imageIndex,
+                    fecha_ultimo_cambio: esim.fechaUltimoCambio,
+                    updated_at: new Date().toISOString()
+                }));
+
+                // Limpiar tabla y insertar todos los datos
+                const { error: deleteError } = await supabase
+                    .from('esim_data')
+                    .delete()
+                    .neq('id', 0); // Eliminar todos los registros
+
+                if (deleteError) {
+                    console.error('Error limpiando tabla:', deleteError);
+                }
+
+                // Insertar datos actualizados
+                const { error: insertError } = await supabase
+                    .from('esim_data')
+                    .insert(supabaseData);
+
+                if (insertError) {
+                    throw insertError;
+                }
+
+            } catch (error) {
+                console.error('Error subiendo a la nube:', error);
+                throw error;
+            }
+        }
+
+        async function updateEsimInCloud(esim) {
+            if (!supabase || isDemoMode) return;
+
+            try {
+                const supabaseData = {
+                    iccid: esim.iccid,
+                    asignado_a: esim.asignadoA,
+                    distribuidor: esim.distribuidor,
+                    msisdn: esim.msisdn,
+                    imsi: esim.imsi,
+                    pin: esim.pin,
+                    puk: esim.puk,
+                    serie: esim.serie,
+                    ip: esim.ip,
+                    producto: esim.producto,
+                    estado: esim.estado,
+                    fecha_creacion: esim.fechaCreacion,
+                    image_index: esim.imageIndex,
+                    fecha_ultimo_cambio: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error } = await supabase
+                    .from('esim_data')
+                    .upsert(supabaseData, { onConflict: 'id' });
+
+                if (error) {
+                    throw error;
+                }
+
+            } catch (error) {
+                console.error('Error actualizando en la nube:', error);
+                throw error;
+            }
+        }
+
+        function startAutoSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+
+            syncInterval = setInterval(async () => {
+                if (isConnected && !isDemoMode) {
                     try {
-                        const cloudData = await cloudDB.load();
-                        if (cloudData && JSON.stringify(cloudData) !== JSON.stringify(esimDatabase)) {
-                            esimDatabase = cloudData;
-                            filteredData = [...esimDatabase];
-                            updateStats();
-                            renderGrid();
-                            renderTable();
-                            console.log('Datos sincronizados automáticamente');
-                        }
+                        await loadDataFromCloud();
                     } catch (error) {
                         console.error('Error en sincronización automática:', error);
                     }
                 }
             }, CONFIG.syncInterval);
-        });
+        }
 
-        function setupEventListeners() {
-            document.getElementById('searchInput').addEventListener('input', applyFilters);
-            document.getElementById('statusFilter').addEventListener('change', applyFilters);
-            document.getElementById('productFilter').addEventListener('change', applyFilters);
-            document.getElementById('ipFilter').addEventListener('change', applyFilters);
-            document.querySelector('.close').addEventListener('click', closeModal);
-            document.getElementById('qrModal').addEventListener('click', function(e) {
-                if (e.target === this) closeModal();
-            });
+        async function manualSync() {
+            if (!supabase || isDemoMode) {
+                showNotification('No hay conexión a la nube', 'error');
+                return;
+            }
+
+            try {
+                updateSyncStatus('Sincronizando...', 'syncing');
+                await loadDataFromCloud();
+                showNotification('Sincronización completada', 'success');
+            } catch (error) {
+                console.error('Error en sincronización manual:', error);
+                updateSyncStatus('Error de sincronización', 'error');
+                showNotification('Error en sincronización: ' + error.message, 'error');
+            }
         }
 
         // Funciones principales del sistema
@@ -1031,19 +1258,19 @@
             const esim = esimDatabase.find(item => item.id === id);
             if (!esim) return;
 
-            // Actualizar localmente primero
+            // Actualizar localmente
             esim.estado = 'Usado';
             esim.fechaUltimoCambio = new Date().toISOString();
 
-            // Actualizar interfaz inmediatamente
+            // Actualizar interfaz
             updateStats();
             applyFilters();
             showNotification('eSIM marcada como usada', 'success');
 
             // Sincronizar con la nube
-            if (isConnected) {
+            if (isConnected && !isDemoMode) {
                 try {
-                    await cloudDB.update(esim.iccid, { estado: 'Usado' });
+                    await updateEsimInCloud(esim);
                     updateSyncStatus('Sincronizado', 'connected');
                 } catch (error) {
                     console.error('Error sincronizando cambio:', error);
@@ -1059,19 +1286,19 @@
             const esim = esimDatabase.find(item => item.id === id);
             if (!esim) return;
 
-            // Actualizar localmente primero
+            // Actualizar localmente
             esim.estado = 'Disponible';
             esim.fechaUltimoCambio = new Date().toISOString();
 
-            // Actualizar interfaz inmediatamente
+            // Actualizar interfaz
             updateStats();
             applyFilters();
             showNotification('eSIM marcada como disponible', 'success');
 
             // Sincronizar con la nube
-            if (isConnected) {
+            if (isConnected && !isDemoMode) {
                 try {
-                    await cloudDB.update(esim.iccid, { estado: 'Disponible' });
+                    await updateEsimInCloud(esim);
                     updateSyncStatus('Sincronizado', 'connected');
                 } catch (error) {
                     console.error('Error sincronizando cambio:', error);
@@ -1087,16 +1314,16 @@
             const esim = esimDatabase.find(item => item.id === id);
             if (!esim) return;
 
-            // Actualizar localmente primero
+            // Actualizar localmente
             esim.asignadoA = assignedTo;
             esim.fechaUltimoCambio = new Date().toISOString();
 
             showNotification('Asignación actualizada', 'success');
 
             // Sincronizar con la nube
-            if (isConnected) {
+            if (isConnected && !isDemoMode) {
                 try {
-                    await cloudDB.update(esim.iccid, { asignadoA: assignedTo });
+                    await updateEsimInCloud(esim);
                     updateSyncStatus('Sincronizado', 'connected');
                 } catch (error) {
                     console.error('Error sincronizando asignación:', error);
@@ -1108,7 +1335,7 @@
             localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
         }
 
-        // Funciones de importación de CSV
+        // Funciones de importación CSV
         function handleFileSelect(event) {
             selectedFile = event.target.files[0];
             const importBtn = document.getElementById('importBtn');
@@ -1144,8 +1371,8 @@
                         showNotification(`${newEsimsCount} nuevas eSIM importadas correctamente`, 'success');
                         
                         // Sincronizar con la nube
-                        if (isConnected) {
-                            await cloudDB.save(esimDatabase);
+                        if (isConnected && !isDemoMode) {
+                            await uploadToCloud();
                             updateSyncStatus('Datos sincronizados', 'connected');
                         }
                         
@@ -1170,17 +1397,11 @@
             reader.readAsText(selectedFile);
         }
 
-        // Función de sincronización manual con GitHub
+        // Sincronización con GitHub
         async function syncWithGitHub() {
-            if (!isConnected) {
-                showNotification('Sin conexión a la nube', 'error');
-                return;
-            }
-
             try {
-                updateSyncStatus('Sincronizando con GitHub...', 'connecting');
+                updateSyncStatus('Sincronizando con GitHub...', 'syncing');
                 
-                // Obtener lista de archivos del repositorio
                 const response = await fetch(CONFIG.githubApiUrl);
                 if (!response.ok) throw new Error('Error al acceder a GitHub');
                 
@@ -1190,14 +1411,12 @@
                     file.name.match(/^8952\d+\.png$/)
                 );
 
-                // Verificar si hay nuevas imágenes QR
                 let newQRsFound = 0;
                 for (const file of qrFiles) {
                     const iccid = file.name.replace('.png', '');
                     const exists = esimDatabase.find(esim => esim.iccid === iccid);
                     
                     if (!exists) {
-                        // Crear entrada para nueva eSIM encontrada en GitHub
                         esimDatabase.push({
                             id: esimDatabase.length + 1,
                             iccid: iccid,
@@ -1221,21 +1440,36 @@
                 }
 
                 if (newQRsFound > 0) {
-                    await cloudDB.save(esimDatabase);
+                    if (isConnected && !isDemoMode) {
+                        await uploadToCloud();
+                    }
                     localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
                     filteredData = [...esimDatabase];
                     updateStats();
                     renderGrid();
                     renderTable();
                     showNotification(`${newQRsFound} nuevas eSIM sincronizadas desde GitHub`, 'success');
+                } else {
+                    showNotification('No se encontraron nuevas eSIM en GitHub', 'info');
                 }
 
-                updateSyncStatus('Sincronizado', 'connected');
+                updateSyncStatus(isConnected ? 'Sincronizado' : 'Solo local', isConnected ? 'connected' : 'error');
             } catch (error) {
                 console.error('Error sincronizando con GitHub:', error);
                 updateSyncStatus('Error de sincronización', 'error');
                 showNotification('Error al sincronizar con GitHub', 'error');
             }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('productFilter').addEventListener('change', applyFilters);
+            document.getElementById('ipFilter').addEventListener('change', applyFilters);
+            document.querySelector('.close').addEventListener('click', closeModal);
+            document.getElementById('qrModal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
         }
 
         function updateStats() {
@@ -1480,10 +1714,8 @@ Asignado a: ${esim.asignadoA}
             });
         }
 
-        // Función de exportación a Excel
         function exportToExcel() {
             try {
-                // Preparar datos para exportación
                 const exportData = filteredData.map(esim => ({
                     'ICCID': esim.iccid,
                     'Asignado a': esim.asignadoA,
@@ -1499,39 +1731,24 @@ Asignado a: ${esim.asignadoA}
                     'Última Modificación': esim.fechaUltimoCambio
                 }));
 
-                // Crear libro de trabajo
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.json_to_sheet(exportData);
 
-                // Ajustar ancho de columnas
                 const colWidths = [
-                    { wch: 25 }, // ICCID
-                    { wch: 20 }, // Asignado a
-                    { wch: 15 }, // MSISDN
-                    { wch: 20 }, // IMSI
-                    { wch: 8 },  // PIN
-                    { wch: 12 }, // PUK
-                    { wch: 10 }, // Serie
-                    { wch: 8 },  // IP
-                    { wch: 10 }, // Producto
-                    { wch: 12 }, // Estado
-                    { wch: 15 }, // Fecha Creación
-                    { wch: 20 }  // Última Modificación
+                    { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 },
+                    { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 8 },
+                    { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 20 }
                 ];
                 ws['!cols'] = colWidths;
 
-                // Agregar hoja al libro
                 XLSX.utils.book_append_sheet(wb, ws, 'eSIM BAITEL');
 
-                // Generar nombre de archivo con fecha
                 const now = new Date();
                 const dateStr = now.toISOString().split('T')[0];
                 const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
                 const filename = `eSIM_BAITEL_${dateStr}_${timeStr}.xlsx`;
 
-                // Descargar archivo
                 XLSX.writeFile(wb, filename);
-                
                 showNotification(`Archivo exportado: ${filename}`, 'success');
             } catch (error) {
                 console.error('Error exportando a Excel:', error);
@@ -1539,40 +1756,12 @@ Asignado a: ${esim.asignadoA}
             }
         }
 
-        // Sistema de notificaciones
         function showNotification(message, type = 'info') {
-            // Crear elemento de notificación
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                border-radius: 8px;
-                color: white;
-                font-weight: 600;
-                z-index: 10000;
-                transition: all 0.3s ease;
-                max-width: 300px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            `;
-
-            // Colores según tipo
-            switch (type) {
-                case 'success':
-                    notification.style.background = '#27ae60';
-                    break;
-                case 'error':
-                    notification.style.background = '#e74c3c';
-                    break;
-                default:
-                    notification.style.background = '#3498db';
-            }
-
+            notification.className = `notification ${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
 
-            // Remover después de 3 segundos
             setTimeout(() => {
                 notification.style.opacity = '0';
                 notification.style.transform = 'translateX(100%)';
