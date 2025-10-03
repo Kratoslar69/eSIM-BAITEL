@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema eSIM BAITEL - Con Plantillas Integradas</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Supabase SDK -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         * {
@@ -746,7 +745,6 @@
     </style>
 </head>
 <body>
-    <!-- Modal de configuración inicial -->
     <div id="setupModal" class="setup-modal">
         <div class="setup-content">
             <h2>🚀 Configuración Inicial - Sistema eSIM BAITEL</h2>
@@ -768,14 +766,12 @@
         </div>
     </div>
 
-    <!-- Modal de instrucciones -->
     <div id="instructionsModal" class="modal instructions-modal">
         <div class="modal-content">
             <span class="close" onclick="closeInstructionsModal()">&times;</span>
             <h2>📋 Guía para Importar Inventarios eSIM</h2>
             <div class="instructions-content" id="instructionsContent">
-                <!-- El contenido se carga dinámicamente -->
-            </div>
+                </div>
         </div>
     </div>
 
@@ -846,7 +842,6 @@
                 </div>
             </div>
 
-            <!-- Sección de plantillas -->
             <div class="templates-section">
                 <div style="flex: 1;">
                     <h4 style="margin-bottom: 10px; color: #2196f3;">📄 Plantillas de Importación</h4>
@@ -1099,6 +1094,8 @@
                     setupDemo();
                 }
                 document.getElementById('setupModal').style.display = 'none';
+            } else {
+                 document.getElementById('setupModal').style.display = 'flex'; // Asegura que el modal de configuración esté visible si no hay config
             }
         }
 
@@ -1147,12 +1144,12 @@
                 // Inicializar Supabase
                 supabase = window.supabase.createClient(url, key);
                 
-                // Verificar conexión
-                const { data, error } = await supabase.from('esim_data').select('count', { count: 'exact', head: true });
+                // Verificar conexión (intento de lectura silenciosa)
+                const { error } = await supabase.from('esim_data').select('count', { count: 'exact', head: true });
                 
                 if (error && error.code === '42P01') {
-                    // Tabla no existe, crearla
-                    await createTable();
+                    // Tabla no existe, se intentará crear al primer insert
+                    console.log('Tabla esim_data no encontrada. Se creará en el primer insert.');
                 }
                 
                 isConnected = true;
@@ -1162,7 +1159,7 @@
                 // Cargar datos
                 await loadDataFromCloud();
                 
-                // Iniciar sincronización automática
+                // Iniciar sincronización automática (la versión mejorada)
                 startAutoSync();
                 
                 showNotification('Conectado a la base de datos en la nube', 'success');
@@ -1175,6 +1172,7 @@
             }
         }
 
+        // NOTA: La función createTable se mantiene como referencia, pero no es esencial si se usa upsert.
         async function createTable() {
             try {
                 // Crear tabla usando SQL directo
@@ -1260,7 +1258,10 @@
                 } else {
                     // Primera vez - cargar datos iniciales
                     loadInitialData();
-                    await uploadToCloud();
+                    // Si el inventario local tiene datos, intentar subirlos.
+                    if (esimDatabase.length > 0) {
+                        await uploadToCloud(); 
+                    }
                 }
                 
                 filteredData = [...esimDatabase];
@@ -1420,7 +1421,9 @@
                     updated_at: new Date().toISOString()
                 }));
 
-                // Limpiar tabla y insertar todos los datos
+                // Limpiar tabla (comentado para usar solo upsert si es posible, pero se mantiene la lógica original de borrado por si acaso)
+                // En un entorno real con muchos usuarios, se preferiría usar una función RPC para hacer el merge o upsert de forma eficiente.
+                // Aquí usamos DELETE + INSERT para asegurar que el inventario local es la fuente de verdad.
                 const { error: deleteError } = await supabase
                     .from('esim_data')
                     .delete()
@@ -1470,6 +1473,7 @@
                     updated_at: new Date().toISOString()
                 };
 
+                // Usamos upsert para actualizar el registro existente o insertarlo si no existe (basado en 'id')
                 const { error } = await supabase
                     .from('esim_data')
                     .upsert(supabaseData, { onConflict: 'id' });
@@ -1492,6 +1496,56 @@
             }
         }
 
+        // FUNCIÓN MEJORADA: Sincronización silenciosa
+        async function syncDataSilently() {
+            try {
+                const { data, error } = await supabase
+                    .from('esim_data')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) {
+                    console.error('Error en sincronización silenciosa:', error);
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    // Actualizar base de datos sin recargar interfaz
+                    esimDatabase = data.map(item => ({
+                        id: item.id,
+                        iccid: item.iccid,
+                        asignadoA: item.asignado_a || '',
+                        distribuidor: item.distribuidor || 'BAITEL',
+                        msisdn: item.msisdn || '',
+                        imsi: item.imsi || '',
+                        pin: item.pin || '1234',
+                        puk: item.puk || '',
+                        serie: item.serie || '',
+                        ip: item.ip || 'CB127',
+                        producto: item.producto || 'MOV',
+                        estado: item.estado || 'Disponible',
+                        fechaCreacion: item.fecha_creacion || new Date().toISOString().split('T')[0],
+                        imageIndex: item.image_index || item.id,
+                        fechaUltimoCambio: item.fecha_ultimo_cambio || item.updated_at
+                    }));
+                    
+                    // Solo actualizar estadísticas, no recargar vistas (para evitar interrupciones)
+                    updateStats();
+
+                    // Aplicar filtros a los nuevos datos, pero sin forzar el renderizado completo
+                    // Esto permite que el usuario siga viendo lo que estaba viendo, aunque los datos subyacentes cambien
+                    applyFilters(false); // Llamamos con 'false' para no renderizar si la función lo permite.
+                    
+                    // Respaldo local
+                    localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
+                }
+
+            } catch (error) {
+                console.error('Error en sincronización silenciosa:', error);
+            }
+        }
+
+        // FUNCIÓN MEJORADA: startAutoSync usa syncDataSilently()
         function startAutoSync() {
             if (syncInterval) {
                 clearInterval(syncInterval);
@@ -1500,7 +1554,8 @@
             syncInterval = setInterval(async () => {
                 if (isConnected && !isDemoMode) {
                     try {
-                        await loadDataFromCloud();
+                        // Sincronizar sin recargar la interfaz
+                        await syncDataSilently();
                     } catch (error) {
                         console.error('Error en sincronización automática:', error);
                     }
@@ -1516,7 +1571,8 @@
 
             try {
                 updateSyncStatus('Sincronizando...', 'syncing');
-                await loadDataFromCloud();
+                // En la sincronización manual, sí queremos una actualización completa:
+                await loadDataFromCloud(); 
                 showNotification('Sincronización completada', 'success');
             } catch (error) {
                 console.error('Error en sincronización manual:', error);
@@ -1587,6 +1643,9 @@
             // Actualizar localmente
             esim.asignadoA = assignedTo;
             esim.fechaUltimoCambio = new Date().toISOString();
+            
+            // Re-aplicar filtros para que la vista se actualice si el filtro 'Asignado a' está activo
+            applyFilters();
 
             showNotification('Asignación actualizada', 'success');
 
@@ -1870,11 +1929,14 @@
             });
         }
 
-        function applyFilters() {
+        // Modificamos applyFilters para que sepa si debe renderizar (actualización manual o por usuario) o no (sincronización silenciosa)
+        function applyFilters(shouldRender = true) {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;
             const productFilter = document.getElementById('productFilter').value;
             const ipFilter = document.getElementById('ipFilter').value;
+
+            const oldFilteredDataCount = filteredData.length;
 
             filteredData = esimDatabase.filter(esim => {
                 const matchesSearch = !searchTerm || 
@@ -1890,8 +1952,13 @@
                 return matchesSearch && matchesStatus && matchesProduct && matchesIP;
             });
 
-            renderGrid();
-            renderTable();
+            // Solo renderizar si se pidió (acciones del usuario/manual sync)
+            // O si el número de elementos en la vista filtrada ha cambiado (por la sync silenciosa)
+            // Esto es un compromiso: minimiza la recarga, pero garantiza que nuevos elementos aparezcan si aplican al filtro actual.
+            if (shouldRender || filteredData.length !== oldFilteredDataCount) {
+                renderGrid();
+                renderTable();
+            }
         }
 
         function resetFilters() {
@@ -2063,4 +2130,3 @@ Asignado a: ${esim.asignadoA}
     </script>
 </body>
 </html>
-
