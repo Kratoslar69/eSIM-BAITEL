@@ -1421,25 +1421,20 @@
                     updated_at: new Date().toISOString()
                 }));
 
-                // ✅ CORRECCIÓN CRÍTICA: Usar UPSERT en lugar de DELETE + INSERT
-                // El código original borraba TODA la tabla antes de insertar, causando pérdida de datos
-                // UPSERT es seguro porque:
-                // - Actualiza registros existentes
-                // - Inserta solo los nuevos
-                // - NUNCA borra la tabla completa
-                // - Es una operación atómica (todo o nada)
+                // ✅ CORRECCIÓN: Usar UPSERT en lugar de DELETE + INSERT
+                // UPSERT actualiza registros existentes o inserta nuevos SIN borrar la tabla
                 const { error: upsertError } = await supabase
                     .from('esim_data')
                     .upsert(supabaseData, { 
                         onConflict: 'id',
-                        ignoreDuplicates: false  // Actualiza si ya existe
+                        ignoreDuplicates: false
                     });
 
                 if (upsertError) {
                     throw upsertError;
                 }
 
-                console.log('✅ Datos sincronizados correctamente con UPSERT - Tabla nunca se borra');
+                console.log('Datos sincronizados con UPSERT');
 
             } catch (error) {
                 console.error('Error subiendo a la nube:', error);
