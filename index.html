@@ -1421,26 +1421,25 @@
                     updated_at: new Date().toISOString()
                 }));
 
-                // Limpiar tabla (comentado para usar solo upsert si es posible, pero se mantiene la lógica original de borrado por si acaso)
-                // En un entorno real con muchos usuarios, se preferiría usar una función RPC para hacer el merge o upsert de forma eficiente.
-                // Aquí usamos DELETE + INSERT para asegurar que el inventario local es la fuente de verdad.
-                const { error: deleteError } = await supabase
+                // ✅ CORRECCIÓN CRÍTICA: Usar UPSERT en lugar de DELETE + INSERT
+                // El código original borraba TODA la tabla antes de insertar, causando pérdida de datos
+                // UPSERT es seguro porque:
+                // - Actualiza registros existentes
+                // - Inserta solo los nuevos
+                // - NUNCA borra la tabla completa
+                // - Es una operación atómica (todo o nada)
+                const { error: upsertError } = await supabase
                     .from('esim_data')
-                    .delete()
-                    .neq('id', 0); // Eliminar todos los registros
+                    .upsert(supabaseData, { 
+                        onConflict: 'id',
+                        ignoreDuplicates: false  // Actualiza si ya existe
+                    });
 
-                if (deleteError) {
-                    console.error('Error limpiando tabla:', deleteError);
+                if (upsertError) {
+                    throw upsertError;
                 }
 
-                // Insertar datos actualizados
-                const { error: insertError } = await supabase
-                    .from('esim_data')
-                    .insert(supabaseData);
-
-                if (insertError) {
-                    throw insertError;
-                }
+                console.log('✅ Datos sincronizados correctamente con UPSERT - Tabla nunca se borra');
 
             } catch (error) {
                 console.error('Error subiendo a la nube:', error);
