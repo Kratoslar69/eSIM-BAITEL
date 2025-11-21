@@ -930,6 +930,7 @@
         let isConnected = false;
         let isDemoMode = false;
         let syncInterval = null;
+        let maxExistingId = 0; // ✅ Trackear el ID máximo en la BD
 
         // Plantillas integradas
         const CSV_TEMPLATE = `ICCID,Asignada a,OI,BE_ID,IMSI,IMSI_rb1,IMSI_rb2,MSISDN,PIN 1,PUNK 1,SERIE VALID,IP,PRODUCTO
@@ -1152,6 +1153,28 @@
                     console.log('Tabla esim_data no encontrada. Se creará en el primer insert.');
                 }
                 
+                // ✅ Verificar/crear PRIMARY KEY (importante para UPSERT)
+                try {
+                    const { error: pkError } = await supabase.rpc('exec_sql', {
+                        query: `
+                            DO $$ 
+                            BEGIN
+                                IF NOT EXISTS (
+                                    SELECT 1 FROM pg_constraint 
+                                    WHERE conname = 'esim_data_pkey'
+                                ) THEN
+                                    ALTER TABLE esim_data ADD PRIMARY KEY (id);
+                                END IF;
+                            END $$;
+                        `
+                    });
+                    if (!pkError) {
+                        console.log('✅ PRIMARY KEY verificada/creada en esim_data');
+                    }
+                } catch (pkError) {
+                    console.log('ℹ️ PRIMARY KEY: ', pkError.message || 'Asegúrate de tener PRIMARY KEY en columna id');
+                }
+                
                 isConnected = true;
                 updateSyncStatus('Conectado a Supabase', 'connected');
                 enableSyncButtons();
@@ -1235,6 +1258,10 @@
                 }
 
                 if (data && data.length > 0) {
+                    // ✅ Obtener el ID máximo de Supabase
+                    maxExistingId = Math.max(...data.map(item => item.id));
+                    console.log(`📊 ID máximo en Supabase: ${maxExistingId}`);
+                    
                     // Convertir datos de Supabase al formato local
                     esimDatabase = data.map(item => ({
                         id: item.id,
@@ -1337,7 +1364,7 @@
                     const exists = esimDatabase.find(esim => esim.iccid === iccid);
                     if (!exists) {
                         newEsims.push({
-                            id: esimDatabase.length + newEsims.length + 1,
+                            id: maxExistingId + newEsims.length + 1,
                             iccid: iccid,
                             asignadoA: values[1].trim(),
                             distribuidor: "BAITEL",
@@ -1438,6 +1465,55 @@
 
             } catch (error) {
                 console.error('Error subiendo a la nube:', error);
+                throw error;
+            }
+        }
+
+
+        // ✅ NUEVA FUNCIÓN: Subir solo registros específicos (nuevos)
+        async function uploadNewRecordsToCloud(newRecords) {
+            if (!supabase || isDemoMode || !newRecords || newRecords.length === 0) return;
+
+            try {
+                console.log(`📤 Subiendo ${newRecords.length} registros nuevos a Supabase...`);
+                
+                // Convertir solo los nuevos registros al formato de Supabase
+                const supabaseData = newRecords.map(esim => ({
+                    id: esim.id,
+                    iccid: esim.iccid,
+                    asignado_a: esim.asignadoA,
+                    distribuidor: esim.distribuidor,
+                    msisdn: esim.msisdn,
+                    imsi: esim.imsi,
+                    pin: esim.pin,
+                    puk: esim.puk,
+                    serie: esim.serie,
+                    ip: esim.ip,
+                    producto: esim.producto,
+                    estado: esim.estado,
+                    fecha_creacion: esim.fechaCreacion,
+                    image_index: esim.imageIndex,
+                    fecha_ultimo_cambio: esim.fechaUltimoCambio,
+                    updated_at: new Date().toISOString()
+                }));
+
+                // UPSERT solo de los nuevos registros
+                const { error: upsertError } = await supabase
+                    .from('esim_data')
+                    .upsert(supabaseData, { 
+                        onConflict: 'id',
+                        ignoreDuplicates: false
+                    });
+
+                if (upsertError) {
+                    throw upsertError;
+                }
+
+                console.log(`✅ ${newRecords.length} registros nuevos sincronizados correctamente`);
+                showNotification(`✅ ${newRecords.length} eSIM sincronizadas con la nube`, 'success');
+
+            } catch (error) {
+                console.error('Error subiendo registros nuevos:', error);
                 throw error;
             }
         }
@@ -1695,10 +1771,11 @@
                         // Respaldo local inmediato
                         localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(esimDatabase));
                         
-                        // Sincronizar con la nube AUTOMÁTICAMENTE
+                        // Sincronizar con la nube AUTOMÁTICAMENTE - SOLO LOS NUEVOS
                         if (isConnected && !isDemoMode) {
                             try {
-                                await uploadToCloud();
+                                // En lugar de subir todo, solo subir los nuevos registros importados
+                                await uploadNewRecordsToCloud(esimDatabase.slice(-newEsimsCount));
                                 updateSyncStatus('Datos sincronizados', 'connected');
                             } catch (error) {
                                 console.error('Error sincronizando importación:', error);
