@@ -1153,27 +1153,8 @@
                     console.log('Tabla esim_data no encontrada. Se creará en el primer insert.');
                 }
                 
-                // ✅ Verificar/crear PRIMARY KEY (importante para UPSERT)
-                try {
-                    const { error: pkError } = await supabase.rpc('exec_sql', {
-                        query: `
-                            DO $$ 
-                            BEGIN
-                                IF NOT EXISTS (
-                                    SELECT 1 FROM pg_constraint 
-                                    WHERE conname = 'esim_data_pkey'
-                                ) THEN
-                                    ALTER TABLE esim_data ADD PRIMARY KEY (id);
-                                END IF;
-                            END $$;
-                        `
-                    });
-                    if (!pkError) {
-                        console.log('✅ PRIMARY KEY verificada/creada en esim_data');
-                    }
-                } catch (pkError) {
-                    console.log('ℹ️ PRIMARY KEY: ', pkError.message || 'Asegúrate de tener PRIMARY KEY en columna id');
-                }
+                // PRIMARY KEY ya está configurada en la base de datos
+                console.log('✅ Conectando a esim_data...');
                 
                 isConnected = true;
                 updateSyncStatus('Conectado a Supabase', 'connected');
