@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema eSIM BAITEL - Gestión Completa</title>
+    <title>Sistema eSIM BAITEL - Supabase Pro</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* --- ESTILOS ORIGINALES RESTAURADOS --- */
+        /* --- ESTILOS ORIGINALES PRESERVADOS --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Tu fondo original */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -35,7 +35,7 @@
         }
 
         .header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
-        .server-badge { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
+        .server-badge { background: #27ae60; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Barra de Herramientas */
         .toolbar {
@@ -51,7 +51,7 @@
         }
         .search-input:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
 
-        /* Botones Estilizados */
+        /* Botones */
         .btn {
             padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; 
             font-weight: 600; color: white; display: flex; align-items: center; gap: 8px; 
@@ -63,7 +63,7 @@
         .btn-copy { background: #edf2f7; color: #4a5568; padding: 6px 12px; font-size: 0.85rem; }
         .btn-copy:hover { background: #cbd5e0; }
 
-        /* Tabla y Scroll */
+        /* Tabla */
         .table-wrapper { flex: 1; overflow: auto; position: relative; }
         
         table { width: 100%; border-collapse: collapse; min-width: 1000px; }
@@ -83,7 +83,7 @@
         /* Loader y Notificaciones */
         .loader-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.9); z-index: 50;
+            background: rgba(255,255,255,0.95); z-index: 50;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .notification {
@@ -104,7 +104,7 @@
         <div class="header">
             <h1>
                 <i class="fas fa-sim-card"></i> eSIM Manager
-                <span class="server-badge">VPS CONECTADO</span>
+                <span class="server-badge">CONECTADO PRO</span>
             </h1>
             <div style="font-size: 0.9rem; opacity: 0.9;">
                 <i class="fas fa-database"></i> Registros: <span id="totalRecords">0</span>
@@ -129,7 +129,8 @@
         <div class="table-wrapper">
             <div id="loader" class="loader-overlay">
                 <i class="fas fa-circle-notch fa-spin" style="font-size: 3rem; color: #3498db; margin-bottom: 15px;"></i>
-                <h3 style="color: #555;">Conectando al VPS...</h3>
+                <h3 style="color: #555;">Conectando a Supabase Pro...</h3>
+                <p style="color: #888; margin-top: 10px;">Autenticando credenciales...</p>
             </div>
 
             <table id="mainTable">
@@ -141,7 +142,7 @@
                         <th>Asignado A</th>
                         <th>MSISDN (Tel)</th>
                         <th>Producto</th>
-                        <th>Fecha</th>
+                        <th>Fecha Creación</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -154,11 +155,11 @@
     <div id="toast" class="notification">Mensaje aquí</div>
 
     <script>
-        // --- 1. CONFIGURACIÓN DEL VPS (Hardcodeada para evitar el bucle) ---
+        // --- 1. CONFIGURACIÓN SUPABASE PRO (Tus Credenciales) ---
         const CONFIG = {
-            url: 'https://devsupabase.m4metadryve.mx',
-            key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.eOngpje6lQiBf1O3oRXxNmjeHXWev3oYGTkdITf5LaI',
-            table: 'esim_data'
+            url: 'https://owlqjsiyyqblgyxuevvg.supabase.co',
+            key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bHFqc2l5eXFibGd5eHVldnZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNzQ1MzgsImV4cCI6MjA3Mjg1MDUzOH0.xOrQeCDrWSTXLPJWbColCV9fFzaFVYOkJvROr1NoyR4',
+            table: 'esim_data' // Asegúrate que tu tabla en Pro se llame así
         };
 
         let globalData = [];
@@ -171,7 +172,7 @@
                 supabase = window.supabase.createClient(CONFIG.url, CONFIG.key);
                 initSystem();
             } else {
-                showToast('Error: Librerías no cargadas', 'error');
+                showToast('Error: Librería Supabase no cargada. Revisa internet.', 'error');
             }
         });
 
@@ -181,6 +182,7 @@
 
             try {
                 // Pedir datos ordenados por ID descendente
+                // NOTA: Si tu tabla tiene otro nombre, cambia 'esim_data' arriba en CONFIG
                 const { data, error } = await supabase
                     .from(CONFIG.table)
                     .select('*')
@@ -191,39 +193,45 @@
                 globalData = data;
                 document.getElementById('totalRecords').innerText = data.length;
                 renderTable(data);
-                showToast('Datos actualizados correctamente', 'success');
+                showToast('Datos cargados correctamente', 'success');
 
             } catch (err) {
                 console.error(err);
                 showToast(`Error de conexión: ${err.message}`, 'error');
-                // Si falla SSL, sugerir HTTP en consola
-                if(err.message.includes('fetch')) {
-                    alert("Error de red. Si estás local, verifica que el VPS tenga SSL o usa http://IP:8000 en el código.");
+                
+                // Ayuda visual si la tabla no existe
+                if(err.message.includes('relation') && err.message.includes('does not exist')) {
+                    alert(`La tabla '${CONFIG.table}' no existe en este Supabase Pro. ¿Quizás se llama diferente?`);
                 }
             } finally {
                 loader.style.display = 'none';
             }
         }
 
-        // --- 3. RENDERIZADO (Restaurando la funcionalidad visual) ---
+        // --- 3. RENDERIZADO VISUAL ---
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px;">No se encontraron datos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#666;">No hay registros en la base de datos.<br><small>Verifica que hayas importado el CSV a la tabla "esim_data".</small></td></tr>';
                 return;
             }
 
             data.forEach(row => {
-                // Mapeo de columnas del CSV a variables
+                // Mapeo seguro de columnas (evita undefined)
                 const estado = (row.estado || 'Disponible').toLowerCase();
                 const iccid = row.iccid || 'N/A';
                 const distribuidor = row.distribuidor || '-';
-                const asignado = row.asignado_a || '-'; // Columna clave que faltaba
+                const asignado = row.asignado_a || '-'; 
                 const msisdn = row.msisdn || '-';
                 const producto = row.producto || 'MOV';
-                const fecha = row.fecha_creacion ? new Date(row.fecha_creacion).toLocaleDateString() : '-';
+                
+                // Formato de fecha seguro
+                let fecha = '-';
+                if(row.fecha_creacion) {
+                    fecha = new Date(row.fecha_creacion).toLocaleDateString('es-MX');
+                }
 
                 // Determinar clase del badge
                 let badgeClass = 'badge-disponible';
@@ -233,7 +241,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><span class="badge ${badgeClass}">${row.estado || 'Disponible'}</span></td>
-                    <td style="font-family: monospace; font-weight: bold; color: #2c3e50;">
+                    <td style="font-family: monospace; font-weight: bold; color: #2c3e50; letter-spacing: 0.5px;">
                         ${formatICCID(iccid)}
                     </td>
                     <td>${distribuidor}</td>
@@ -251,17 +259,16 @@
             });
         }
 
-        // --- 4. FUNCIONALIDADES "PERDIDAS" RESTAURADAS ---
+        // --- 4. FUNCIONES DE USUARIO ---
 
         // Buscador Inteligente
         function filterData() {
             const term = document.getElementById('searchInput').value.toLowerCase();
             const filtered = globalData.filter(item => {
-                // Buscar en todas las columnas relevantes
                 return (
                     (item.iccid && item.iccid.toLowerCase().includes(term)) ||
                     (item.distribuidor && item.distribuidor.toLowerCase().includes(term)) ||
-                    (item.asignado_a && item.asignado_a.toLowerCase().includes(term)) || // Buscar por cliente
+                    (item.asignado_a && item.asignado_a.toLowerCase().includes(term)) ||
                     (item.msisdn && String(item.msisdn).includes(term)) ||
                     (item.estado && item.estado.toLowerCase().includes(term))
                 );
@@ -269,14 +276,14 @@
             renderTable(filtered);
         }
 
-        // Exportar a Excel con formato (Restaurado del snippet)
+        // Exportar a Excel
         function exportToExcel() {
             if (globalData.length === 0) return showToast('No hay datos para exportar', 'error');
 
             try {
                 const wb = XLSX.utils.book_new();
                 
-                // Preparamos datos limpios para el reporte
+                // Crear dataset limpio para el reporte
                 const cleanData = globalData.map(row => ({
                     ID: row.id,
                     ICCID: row.iccid,
@@ -285,15 +292,16 @@
                     "Asignado A": row.asignado_a,
                     Teléfono: row.msisdn,
                     IMSI: row.imsi,
-                    Fecha: row.fecha_creacion
+                    Producto: row.producto,
+                    "Fecha Creación": row.fecha_creacion
                 }));
 
                 const ws = XLSX.utils.json_to_sheet(cleanData);
 
-                // Ajustar ancho de columnas (Feature original)
+                // Ajustar ancho de columnas
                 const colWidths = [
                     { wch: 5 }, { wch: 22 }, { wch: 10 }, { wch: 20 }, 
-                    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+                    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 15 }
                 ];
                 ws['!cols'] = colWidths;
 
@@ -301,17 +309,17 @@
                 
                 const fileName = `Reporte_eSIM_${new Date().toISOString().slice(0,10)}.xlsx`;
                 XLSX.writeFile(wb, fileName);
-                showToast(`Excel descargado: ${fileName}`, 'success');
+                showToast(`Descargando: ${fileName}`, 'success');
             } catch (e) {
                 console.error(e);
                 showToast('Error al generar Excel', 'error');
             }
         }
 
-        // Utilidades visuales
+        // Utilidades
         function formatICCID(iccid) {
-            // Muestra el ICCID un poco más legible si es muy largo
-            if(iccid.length > 10) {
+            // Si es muy largo, cortarlo visualmente (opcional)
+            if(iccid.length > 20) {
                 return iccid.substring(0, 5) + '...' + iccid.substring(iccid.length - 4);
             }
             return iccid;
@@ -327,6 +335,7 @@
             toast.textContent = message;
             toast.className = `notification ${type} show`;
             
+            // Auto-ocultar a los 3 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
