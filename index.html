@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema eSIM BAITEL - Con Plantillas Integradas</title>
+    <title>Sistema eSIM BAITEL - Panel Completo</title>
     
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* --- TUS ESTILOS ORIGINALES EXACTOS --- */
+        /* --- ESTILOS VISUALES ORIGINALES --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -22,147 +22,206 @@
 
         .container {
             max-width: 1400px; margin: 0 auto; background: white;
-            border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden;
+            border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            overflow: hidden; display: flex; flex-direction: column; height: 90vh;
         }
 
         .header {
             background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center;
+            color: white; padding: 20px 30px; 
+            display: flex; justify-content: space-between; align-items: center;
         }
-
-        .search-bar {
-            padding: 20px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; gap: 15px;
+        
+        /* Toolbar */
+        .toolbar {
+            padding: 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;
+            display: flex; gap: 15px; align-items: center; flex-wrap: wrap;
         }
-
+        .search-container { flex: 1; position: relative; min-width: 300px; }
+        .search-container i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #aaa; }
         .search-input {
-            flex: 1; padding: 12px 20px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; transition: all 0.3s ease;
+            width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #ddd; 
+            border-radius: 8px; font-size: 15px;
         }
-        .search-input:focus { border-color: #3498db; outline: none; }
 
-        .btn {
-            padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; color: white; display: flex; align-items: center; gap: 8px;
-        }
+        /* Botones */
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
         .btn-success { background: #2ecc71; }
-        .btn-success:hover { background: #27ae60; }
-        .btn-primary { background: #3498db; } 
-        .btn-primary:hover { background: #2980b9; }
-
-        .table-container { overflow-x: auto; max-height: calc(100vh - 250px); position: relative; }
+        .btn-primary { background: #3498db; }
         
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #2c3e50; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #e9ecef; }
-        td { padding: 15px; border-bottom: 1px solid #e9ecef; color: #555; vertical-align: middle; }
-        tr:hover { background-color: #f1f8ff; }
-
-        /* Badges Originales */
-        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-        .status-disponible { background: #d4edda; color: #155724; }
-        .status-vendido { background: #cce5ff; color: #004085; }
-        .status-usado { background: #f8d7da; color: #721c24; }
-
-        .loading { text-align: center; padding: 40px; font-size: 1.2em; color: #666; width: 100%; }
-        
-        /* Notificación Toast Original */
-        .notification {
-            position: fixed; bottom: 30px; right: 30px; padding: 15px 25px; border-radius: 8px; color: white; 
-            transform: translateX(150%); transition: transform 0.3s ease; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        /* BOTÓN QR (Estilo Nuevo) */
+        .btn-qr { 
+            background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%); 
+            box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);
+            font-size: 0.85rem; padding: 6px 12px;
         }
-        .notification.success { background-color: #48bb78; }
-        .notification.error { background-color: #f56565; }
-        .notification.show { transform: translateX(0); }
+        .btn-qr:hover { background: #8e44ad; }
+
+        .btn-copy { background: #edf2f7; color: #4a5568; padding: 6px 10px; font-size: 0.8rem; }
+        .btn-copy:hover { background: #cbd5e0; }
+
+        /* Tabla */
+        .table-wrapper { flex: 1; overflow: auto; position: relative; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ddd; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        
+        .badge { padding: 5px 10px; border-radius: 15px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .badge-disponible { background: #d4edda; color: #155724; }
+        .badge-vendido { background: #cce5ff; color: #004085; }
+        .badge-usado { background: #f8d7da; color: #721c24; }
+
+        /* MODAL QR */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 15px;
+            max-width: 450px; width: 90%; text-align: center;
+            position: relative; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .qr-image { 
+            width: 100%; max-width: 300px; height: auto; 
+            border: 1px solid #ddd; border-radius: 8px; margin: 15px 0; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .close-modal {
+            position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa;
+        }
+        .close-modal:hover { color: #e74c3c; }
+
+        /* Loader */
+        .loader-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.95); z-index: 50;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        
+        /* Toast */
+        .notification {
+            position: fixed; bottom: 30px; right: 30px; padding: 15px 25px; 
+            background: #333; color: white; border-radius: 8px; z-index: 3000;
+            transform: translateY(100px); transition: transform 0.3s;
+        }
+        .notification.show { transform: translateY(0); }
+        .notification.success { border-left: 5px solid #2ecc71; }
+        .notification.error { border-left: 5px solid #e74c3c; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header">
-            <div>
-                <h1><i class="fas fa-sim-card"></i> Sistema eSIM BAITEL</h1>
-                <p style="opacity: 0.8; font-size: 0.9em; margin-top:5px;">Conectado a Supabase Pro</p>
-            </div>
-            <div style="text-align: right;">
-                 <span id="record-count" style="background:rgba(255,255,255,0.2); padding:5px 10px; border-radius:5px;">0 Registros</span>
-            </div>
+            <h1><i class="fas fa-sim-card"></i> eSIM BAITEL</h1>
+            <div><i class="fas fa-database"></i> Registros: <strong id="totalRecords">0</strong></div>
         </div>
 
-        <div class="search-bar">
-            <input type="text" id="searchInput" class="search-input" placeholder="Buscar por ICCID, IMSI, Distribuidor..." onkeyup="filterTable()">
-            <button class="btn btn-success" onclick="exportToExcel()">
-                <i class="fas fa-file-excel"></i> Exportar Excel
-            </button>
-             <button class="btn btn-primary" onclick="initSystem()">
-                <i class="fas fa-sync"></i> Actualizar
-            </button>
+        <div class="toolbar">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" class="search-input" placeholder="Buscar por ICCID, Cliente, Distribuidor..." onkeyup="filterData()">
+            </div>
+            <button class="btn btn-success" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> Exportar</button>
+            <button class="btn btn-primary" onclick="initSystem()"><i class="fas fa-sync-alt"></i> Recargar</button>
         </div>
 
-        <div class="table-container">
-            <div id="loading" class="loading">
-                <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+        <div class="table-wrapper">
+            <div id="loader" class="loader-overlay">
+                <i class="fas fa-circle-notch fa-spin" style="font-size: 3rem; color: #3498db; margin-bottom: 20px;"></i>
+                <h3>Cargando sistema...</h3>
             </div>
-            
-            <table id="dataTable" style="display:none">
+
+            <table id="mainTable">
                 <thead>
                     <tr>
-                        <th>Estado</th>
+                        <th width="80">QR</th> <th width="100">Estado</th>
                         <th>ICCID</th>
                         <th>Distribuidor</th>
                         <th>Asignado A</th>
-                        <th>MSISDN</th>
-                        <th>Producto</th>
+                        <th>Teléfono</th>
                         <th>Fecha</th>
-                        <th>Acciones</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
-                <tbody id="tableBody">
-                    </tbody>
+                <tbody id="tableBody"></tbody>
             </table>
         </div>
     </div>
 
+    <div id="qrModal" class="modal-overlay" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h3 style="color:#2c3e50; margin-bottom:5px;">Código QR eSIM</h3>
+            <p id="modalSubtitle" style="color:#666; font-size:0.9em; font-family:monospace; margin-bottom:10px;">-</p>
+            
+            <img id="modalImage" class="qr-image" src="" alt="Cargando QR...">
+            
+            <div style="margin-top:15px;">
+                <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="closeModal()">
+                    Cerrar Ventana
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="notification">Notificación</div>
+
     <script>
-        // --- CONFIGURACIÓN CORREGIDA (PRO) ---
-        const SUPABASE_URL = 'https://owlqjsiyyqblgyxuevvg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bHFqc2l5eXFibGd5eHVldnZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNzQ1MzgsImV4cCI6MjA3Mjg1MDUzOH0.xOrQeCDrWSTXLPJWbColCV9fFzaFVYOkJvROr1NoyR4';
+        // ==========================================
+        // CONFIGURACIÓN DE CONEXIÓN
+        // ==========================================
         
-        let allData = [];
+        // Repositorio de GitHub (Directo al contenido RAW)
+        const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/Kratoslar69/esim-qr-baitel/main/'; 
+
+        // Credenciales Supabase PRO
+        const CONFIG = {
+            url: 'https://owlqjsiyyqblgyxuevvg.supabase.co',
+            key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bHFqc2l5eXFibGd5eHVldnZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNzQ1MzgsImV4cCI6MjA3Mjg1MDUzOH0.xOrQeCDrWSTXLPJWbColCV9fFzaFVYOkJvROr1NoyR4',
+            table: 'esim_data'
+        };
+        // ==========================================
+
+        let globalData = [];
         let supabase;
 
-        // Iniciar al cargar
-        window.addEventListener('DOMContentLoaded', initSystem);
+        window.addEventListener('load', initSystem);
 
         async function initSystem() {
-            const loading = document.getElementById('loading');
-            const table = document.getElementById('dataTable');
-            
-            loading.style.display = 'block';
-            table.style.display = 'none';
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
 
             try {
-                // Inicialización "Blindada" (Sin persistencia de sesión vieja)
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                // Conexión limpia
+                supabase = window.supabase.createClient(CONFIG.url, CONFIG.key, {
                     auth: { persistSession: false }
                 });
 
-                // Consulta
-                let { data, error } = await supabase
-                    .from('esim_data')
+                const { data, error } = await supabase
+                    .from(CONFIG.table)
                     .select('*')
                     .order('id', { ascending: false });
 
                 if (error) throw error;
 
-                allData = data;
-                document.getElementById('record-count').textContent = `${data.length} Registros`;
+                globalData = data;
+                document.getElementById('totalRecords').innerText = data.length;
                 renderTable(data);
+                showToast('Sistema cargado y listo', 'success');
 
-                loading.style.display = 'none';
-                table.style.display = 'table';
-                showNotification('Datos actualizados correctamente', 'success');
-
-            } catch (error) {
-                console.error('Error:', error);
-                loading.innerHTML = `<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</span><br><br><button onclick="location.reload()" style="padding:10px; cursor:pointer;">Reintentar</button>`;
-                showNotification('Error de conexión', 'error');
+            } catch (err) {
+                console.error(err);
+                showToast('Error de conexión: ' + err.message, 'error');
+            } finally {
+                loader.style.display = 'none';
             }
         }
 
@@ -170,28 +229,36 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px;">No hay registros.</td></tr>';
+                return;
+            }
+
             data.forEach(row => {
-                // Lógica de estado original
                 const estado = (row.estado || 'Disponible');
-                let badgeClass = 'status-disponible';
-                if(estado.toLowerCase().includes('vendido')) badgeClass = 'status-vendido';
-                if(estado.toLowerCase().includes('usado')) badgeClass = 'status-usado';
-                
-                // Formato de fecha
-                let fecha = '-';
-                if(row.fecha_creacion) fecha = new Date(row.fecha_creacion).toLocaleDateString('es-MX');
+                const iccid = row.iccid || '';
+                const fecha = row.fecha_creacion ? new Date(row.fecha_creacion).toLocaleDateString() : '-';
+
+                // Badges
+                let badgeClass = 'badge-disponible';
+                if(estado.toLowerCase().includes('vendido')) badgeClass = 'badge-vendido';
+                if(estado.toLowerCase().includes('usado')) badgeClass = 'badge-usado';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><span class="status-badge ${badgeClass}">${estado}</span></td>
-                    <td style="font-family: monospace; font-weight: bold;">${row.iccid || ''}</td>
-                    <td>${row.distribuidor || ''}</td>
-                    <td>${row.asignado_a || ''}</td>
-                    <td>${row.msisdn || ''}</td>
-                    <td>${row.producto || 'MOV'}</td>
+                    <td>
+                        <button class="btn btn-qr" onclick="openQR('${iccid}')" title="Ver QR">
+                            <i class="fas fa-qrcode"></i> Ver
+                        </button>
+                    </td>
+                    <td><span class="badge ${badgeClass}">${estado}</span></td>
+                    <td style="font-family:monospace; font-weight:bold; color:#2c3e50">${formatICCID(iccid)}</td>
+                    <td>${row.distribuidor || '-'}</td>
+                    <td><strong>${row.asignado_a || '-'}</strong></td>
+                    <td>${row.msisdn || '-'}</td>
                     <td>${fecha}</td>
                     <td>
-                        <button class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="copyToClipboard('${row.iccid}')">
+                        <button class="btn btn-copy" onclick="copyToClipboard('${iccid}')">
                             <i class="fas fa-copy"></i>
                         </button>
                     </td>
@@ -200,87 +267,75 @@
             });
         }
 
-        // --- TUS FUNCIONES ORIGINALES RESTAURADAS ---
+        // --- LÓGICA DE QR (Conectada a GitHub) ---
+        function openQR(iccid) {
+            if (!iccid || iccid.length < 5) {
+                alert("ICCID inválido, no se puede cargar el QR.");
+                return;
+            }
 
-        function filterTable() {
+            // Construimos la URL usando el ICCID exacto como en tu repo
+            // Asumimos formato PNG
+            const imageUrl = `${GITHUB_RAW_URL}${iccid}.png`; 
+            
+            document.getElementById('modalSubtitle').textContent = `ICCID: ${iccid}`;
+            
+            const img = document.getElementById('modalImage');
+            img.src = imageUrl;
+            
+            // Si la imagen no existe en GitHub, mostramos aviso
+            img.onerror = function() {
+                this.src = 'https://via.placeholder.com/300?text=QR+No+Encontrado';
+                showToast('No se encontró el QR en GitHub para este ICCID', 'error');
+            };
+
+            document.getElementById('qrModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        // --- FUNCIONES EXTRA ---
+        function filterData() {
             const term = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allData.filter(row => {
-                return (
-                    (row.iccid && row.iccid.toLowerCase().includes(term)) ||
-                    (row.imsi && row.imsi.toLowerCase().includes(term)) ||
-                    (row.distribuidor && row.distribuidor.toLowerCase().includes(term)) ||
-                    (row.asignado_a && row.asignado_a.toLowerCase().includes(term)) ||
-                    (row.msisdn && String(row.msisdn).includes(term))
-                );
-            });
+            const filtered = globalData.filter(i => JSON.stringify(i).toLowerCase().includes(term));
             renderTable(filtered);
         }
 
         function exportToExcel() {
-            if (allData.length === 0) return showNotification('No hay datos para exportar', 'error');
+            if(!globalData.length) return alert("Sin datos");
+            const wb = XLSX.utils.book_new();
             
-            try {
-                // Preparar datos limpios para Excel
-                const cleanData = allData.map(r => ({
-                   ID: r.id, ICCID: r.iccid, Estado: r.estado, 
-                   Distribuidor: r.distribuidor, Cliente: r.asignado_a,
-                   Teléfono: r.msisdn, Producto: r.producto, Fecha: r.fecha_creacion
-                }));
-
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.json_to_sheet(cleanData);
-                
-                // ANCHOS DE COLUMNA ORIGINALES (Recuperados de tu snippet)
-                const colWidths = [
-                    { wch: 5 }, { wch: 22 }, { wch: 12 }, { wch: 20 }, 
-                    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
-                ];
-                ws['!cols'] = colWidths;
-
-                XLSX.utils.book_append_sheet(wb, ws, 'eSIM BAITEL');
-
-                // GENERACIÓN DE NOMBRE ORIGINAL
-                const now = new Date();
-                const dateStr = now.toISOString().split('T')[0];
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-                const filename = `eSIM_BAITEL_${dateStr}_${timeStr}.xlsx`;
-
-                XLSX.writeFile(wb, filename);
-                showNotification(`Archivo exportado: ${filename}`, 'success');
-            } catch (error) {
-                console.error('Error exportando:', error);
-                showNotification('Error al exportar archivo Excel', 'error');
-            }
+            const cleanData = globalData.map(r => ({
+                ID: r.id, ICCID: r.iccid, Estado: r.estado, 
+                Distribuidor: r.distribuidor, Cliente: r.asignado_a, 
+                Tel: r.msisdn, Fecha: r.fecha_creacion, 
+                EnlaceQR: `${GITHUB_RAW_URL}${r.iccid}.png`
+            }));
+            
+            const ws = XLSX.utils.json_to_sheet(cleanData);
+            ws['!cols'] = [{wch:6}, {wch:22}, {wch:12}, {wch:20}, {wch:25}, {wch:15}, {wch:12}, {wch:50}];
+            
+            XLSX.utils.book_append_sheet(wb, ws, "eSIMs");
+            XLSX.writeFile(wb, `Reporte_eSIM_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
 
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                showNotification(`ICCID Copiado: ${text}`, 'success');
-            });
+        function copyToClipboard(txt) {
+            navigator.clipboard.writeText(txt);
+            showToast('Copiado al portapapeles', 'success');
         }
 
-        // Sistema de Notificaciones Toast
-        function showNotification(message, type = 'info') {
-            // Eliminar notificación previa si existe
-            const existing = document.querySelector('.notification');
-            if(existing) existing.remove();
+        function formatICCID(txt) {
+            if(txt.length > 20) return txt.substring(0,6) + '...' + txt.substring(txt.length-4);
+            return txt;
+        }
 
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            // Animación
-            requestAnimationFrame(() => {
-                notification.classList.add('show');
-            });
-
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => {
-                    if (notification.parentNode) notification.parentNode.removeChild(notification);
-                }, 300);
-            }, 3000);
+        function showToast(msg, type='info') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `notification ${type} show`;
+            setTimeout(() => t.classList.remove('show'), 3000);
         }
     </script>
 </body>
