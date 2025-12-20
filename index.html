@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema eSIM BAITEL - Con Plantillas Integradas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -926,7 +926,6 @@
         let esimDatabase = [];
         let filteredData = [];
         let selectedFile = null;
-        let supabase = null;
         let isConnected = false;
         let isDemoMode = false;
         let syncInterval = null;
@@ -1142,19 +1141,27 @@
             try {
                 updateSyncStatus('Conectando a Supabase...', 'syncing');
                 
-                // Inicializar Supabase
-                supabase = window.supabase.createClient(url, key);
+                // Inicializar Supabase con sintaxis correcta v2
+                const { createClient } = supabase;
+                window.supabaseClient = createClient(url, key);
                 
-                // Verificar conexión (intento de lectura silenciosa)
-                const { error } = await supabase.from('esim_data').select('count', { count: 'exact', head: true });
+                // Verificar conexión
+                const { data, error } = await window.supabaseClient
+                    .from('esim_data')
+                    .select('id', { count: 'exact', head: true })
+                    .limit(1);
                 
-                if (error && error.code === '42P01') {
-                    // Tabla no existe, se intentará crear al primer insert
-                    console.log('Tabla esim_data no encontrada. Se creará en el primer insert.');
+                if (error) {
+                    if (error.code === '42P01') {
+                        console.log('⚠️ Tabla esim_data no encontrada. Verifica que existe en Supabase.');
+                        alert('⚠️ La tabla esim_data no existe en tu base de datos. Por favor créala primero.');
+                        updateSyncStatus('Error: Tabla no existe', 'disconnected');
+                        return false;
+                    }
+                    throw error;
                 }
                 
-                // PRIMARY KEY ya está configurada en la base de datos
-                console.log('✅ Conectando a esim_data...');
+                console.log('✅ Conectado a Supabase exitosamente');
                 
                 isConnected = true;
                 updateSyncStatus('Conectado a Supabase', 'connected');
@@ -1180,7 +1187,7 @@
         async function createTable() {
             try {
                 // Crear tabla usando SQL directo
-                const { error } = await supabase.rpc('create_esim_table');
+                const { error } = await window.supabaseClient.rpc('create_esim_table');
                 
                 if (error) {
                     // Si la función no existe, intentar crear la tabla manualmente
@@ -1219,7 +1226,7 @@
         }
 
         async function loadDataFromCloud() {
-            if (!supabase || isDemoMode) {
+            if (!window.supabaseClient || isDemoMode) {
                 loadDataFromLocal();
                 return;
             }
@@ -1371,7 +1378,7 @@
 
         // Funciones de sincronización forzada
         async function forceUpload() {
-            if (!supabase || isDemoMode) {
+            if (!window.supabaseClient || isDemoMode) {
                 showNotification('No hay conexión a la nube', 'error');
                 return;
             }
@@ -1389,7 +1396,7 @@
         }
 
         async function forceDownload() {
-            if (!supabase || isDemoMode) {
+            if (!window.supabaseClient || isDemoMode) {
                 showNotification('No hay conexión a la nube', 'error');
                 return;
             }
@@ -1406,7 +1413,7 @@
         }
 
         async function uploadToCloud() {
-            if (!supabase || isDemoMode) return;
+            if (!window.supabaseClient || isDemoMode) return;
 
             try {
                 // Convertir datos al formato de Supabase
@@ -1453,7 +1460,7 @@
 
         // ✅ NUEVA FUNCIÓN: Subir solo registros específicos (nuevos)
         async function uploadNewRecordsToCloud(newRecords) {
-            if (!supabase || isDemoMode || !newRecords || newRecords.length === 0) return;
+            if (!window.supabaseClient || isDemoMode || !newRecords || newRecords.length === 0) return;
 
             try {
                 console.log(`📤 Subiendo ${newRecords.length} registros nuevos a Supabase...`);
@@ -1500,7 +1507,7 @@
         }
 
         async function updateEsimInCloud(esim) {
-            if (!supabase || isDemoMode) return;
+            if (!window.supabaseClient || isDemoMode) return;
 
             try {
                 updateSyncStatus('Sincronizando cambio...', 'syncing');
@@ -1519,6 +1526,7 @@
                     producto: esim.producto,
                     estado: esim.estado,
                     fecha_creacion: esim.fechaCreacion,
+                    fecha_asignacion: esim.fechaAsignacion || null,
                     image_index: esim.imageIndex,
                     fecha_ultimo_cambio: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -1615,7 +1623,7 @@
         }
 
         async function manualSync() {
-            if (!supabase || isDemoMode) {
+            if (!window.supabaseClient || isDemoMode) {
                 showNotification('No hay conexión a la nube', 'error');
                 return;
             }
@@ -1692,8 +1700,22 @@
             if (!esim) return;
 
             // Actualizar localmente
+            const oldAssignment = esim.asignadoA;
             esim.asignadoA = assignedTo;
             esim.fechaUltimoCambio = new Date().toISOString();
+            
+            // Si se está asignando por primera vez o cambiando asignación
+            if (assignedTo && assignedTo.trim() !== '') {
+                // Registrar fecha de asignación si no la tiene o cambió de asignación
+                if (!esim.fechaAsignacion || oldAssignment !== assignedTo) {
+                    esim.fechaAsignacion = new Date().toISOString();
+                }
+                // Cambiar estado a Usado automáticamente
+                esim.estado = 'Usado';
+            } else {
+                // Si se limpia la asignación, volver a Disponible
+                esim.estado = 'Disponible';
+            }
             
             // Re-aplicar filtros para que la vista se actualice si el filtro 'Asignado a' está activo
             applyFilters();
@@ -2112,6 +2134,7 @@ IP: ${esim.ip}
 Producto: ${esim.producto}
 Estado: ${esim.estado}
 Asignado a: ${esim.asignadoA}
+Fecha Asignación: ${esim.fechaAsignacion || 'No asignado'}
 Última modificación: ${esim.fechaUltimoCambio}`;
 
             navigator.clipboard.writeText(info).then(() => {
@@ -2135,6 +2158,7 @@ Asignado a: ${esim.asignadoA}
                     'Producto': esim.producto,
                     'Estado': esim.estado,
                     'Fecha Creación': esim.fechaCreacion,
+                    'Fecha Asignación': esim.fechaAsignacion || '',
                     'Última Modificación': esim.fechaUltimoCambio
                 }));
 
