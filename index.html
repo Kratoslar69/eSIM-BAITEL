@@ -1227,6 +1227,7 @@
 
         async function loadDataFromCloud() {
             if (!window.supabaseClient || isDemoMode) {
+                console.log('⚠️ No hay cliente Supabase o está en modo demo');
                 loadDataFromLocal();
                 return;
             }
@@ -1234,18 +1235,28 @@
             try {
                 updateSyncStatus('Descargando datos...', 'syncing');
                 
-                const { data, error } = await supabase
+                console.log('📡 Consultando esim_data en Supabase...');
+                
+                const { data, error } = await window.supabaseClient
                     .from('esim_data')
                     .select('*')
                     .order('created_at', { ascending: true });
 
+                console.log('📊 Respuesta de Supabase:', { 
+                    registros: data?.length || 0, 
+                    error: error?.message 
+                });
+
                 if (error) {
-                    console.error('Error cargando datos:', error);
+                    console.error('❌ Error cargando datos:', error);
+                    showNotification(`Error cargando datos: ${error.message}`, 'error');
                     loadDataFromLocal();
                     return;
                 }
 
                 if (data && data.length > 0) {
+                    console.log(`✅ ${data.length} registros recibidos de Supabase`);
+                    
                     // ✅ Obtener el ID máximo de Supabase
                     maxExistingId = Math.max(...data.map(item => item.id));
                     console.log(`📊 ID máximo en Supabase: ${maxExistingId}`);
@@ -1265,12 +1276,21 @@
                         producto: item.producto || 'MOV',
                         estado: item.estado || 'Disponible',
                         fechaCreacion: item.fecha_creacion || new Date().toISOString().split('T')[0],
+                        fechaAsignacion: item.fecha_asignacion || null,
                         imageIndex: item.image_index || item.id,
                         fechaUltimoCambio: item.fecha_ultimo_cambio || item.updated_at
                     }));
                     
+                    // Actualizar vistas
+                    filteredData = [...esimDatabase];
+                    updateStats();
+                    renderGrid();
+                    renderTable();
+                    
                     updateSyncStatus('Datos sincronizados', 'connected');
+                    showNotification(`${data.length} eSIMs cargados desde la nube`, 'success');
                 } else {
+                    console.log('⚠️ No hay datos en Supabase');
                     // Primera vez - cargar datos iniciales
                     loadInitialData();
                     // Si el inventario local tiene datos, intentar subirlos.
@@ -1438,7 +1458,7 @@
 
                 // ✅ CORRECCIÓN: Usar UPSERT en lugar de DELETE + INSERT
                 // UPSERT actualiza registros existentes o inserta nuevos SIN borrar la tabla
-                const { error: upsertError } = await supabase
+                const { error: upsertError } = await window.supabaseClient
                     .from('esim_data')
                     .upsert(supabaseData, { 
                         onConflict: 'id',
@@ -1486,7 +1506,7 @@
                 }));
 
                 // UPSERT solo de los nuevos registros
-                const { error: upsertError } = await supabase
+                const { error: upsertError } = await window.supabaseClient
                     .from('esim_data')
                     .upsert(supabaseData, { 
                         onConflict: 'id',
@@ -1533,7 +1553,7 @@
                 };
 
                 // Usamos upsert para actualizar el registro existente o insertarlo si no existe (basado en 'id')
-                const { error } = await supabase
+                const { error } = await window.supabaseClient
                     .from('esim_data')
                     .upsert(supabaseData, { onConflict: 'id' });
 
@@ -1558,7 +1578,7 @@
         // FUNCIÓN MEJORADA: Sincronización silenciosa
         async function syncDataSilently() {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await window.supabaseClient
                     .from('esim_data')
                     .select('*')
                     .order('created_at', { ascending: true });
