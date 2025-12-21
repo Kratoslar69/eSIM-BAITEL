@@ -1095,7 +1095,19 @@
                 }
                 document.getElementById('setupModal').style.display = 'none';
             } else {
-                 document.getElementById('setupModal').style.display = 'flex'; // Asegura que el modal de configuración esté visible si no hay config
+                // ✅ AUTO-CONFIGURACIÓN VPS BAITEL
+                const vpsConfig = {
+                    supabaseUrl: 'https://devsupabase.m4metadryve.mx',
+                    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.eOngpje6lQiBf1O3oRXxNmjeHXWev3oYGTkdITf5LaI',
+                    demoMode: false
+                };
+                
+                // Guardar y conectar automáticamente
+                localStorage.setItem(CONFIG.configKey, JSON.stringify(vpsConfig));
+                initializeSupabase(vpsConfig.supabaseUrl, vpsConfig.supabaseKey);
+                document.getElementById('setupModal').style.display = 'none';
+                
+                showNotification('🚀 Conectado automáticamente a BAITEL VPS', 'success');
             }
         }
 
@@ -1108,8 +1120,11 @@
                 return;
             }
 
-            if (!url.includes('supabase.co')) {
-                showNotification('URL de Supabase inválida', 'error');
+            // Validación más flexible - acepta cualquier URL válida
+            try {
+                new URL(url);
+            } catch {
+                showNotification('URL inválida. Debe incluir https://', 'error');
                 return;
             }
 
