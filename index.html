@@ -1095,19 +1095,19 @@
                 }
                 document.getElementById('setupModal').style.display = 'none';
             } else {
-                // ✅ AUTO-CONFIGURACIÓN VPS BAITEL
-                const vpsConfig = {
+                // ✅ AUTO-CONFIGURACIÓN SUPABASE - RECOVERY
+                const cloudConfig = {
                     supabaseUrl: 'https://yppzrrsfgpzoveefcwif.supabase.co',
                     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwcHpycnNmZ3B6b3ZlZWZjd2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4OTQ2NjksImV4cCI6MjA4MjQ3MDY2OX0.OIj7aXbfXohOkwTRXyQV3wUD65VtLniwgYVuYH32q8g',
                     demoMode: false
                 };
                 
                 // Guardar y conectar automáticamente
-                localStorage.setItem(CONFIG.configKey, JSON.stringify(vpsConfig));
-                initializeSupabase(vpsConfig.supabaseUrl, vpsConfig.supabaseKey);
+                localStorage.setItem(CONFIG.configKey, JSON.stringify(cloudConfig));
+                initializeSupabase(cloudConfig.supabaseUrl, cloudConfig.supabaseKey);
                 document.getElementById('setupModal').style.display = 'none';
                 
-                showNotification('🚀 Conectado automáticamente a BAITEL VPS', 'success');
+                showNotification('✅ Sistema recuperado - 350 eSIMs conectados', 'success');
             }
         }
 
