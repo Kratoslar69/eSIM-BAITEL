@@ -893,6 +893,7 @@
                             <th>PUK</th>
                             <th>Estado</th>
                             <th>Asignado a</th>
+                            <th>Fecha Asignación</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -1989,6 +1990,17 @@
                                placeholder="Nombre del usuario..."
                                onchange="updateAssignment(${esim.id}, this.value)"
                                style="width: 100%; padding: 6px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 12px;">
+                        ${esim.fechaAsignacion ? `
+                        <div style="font-size: 11px; color: #6c757d; margin-top: 5px;">
+                            📅 Asignado: ${new Date(esim.fechaAsignacion).toLocaleDateString('es-MX', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="card-actions">
                         ${esim.estado === 'Disponible' ? 
@@ -2026,6 +2038,13 @@
                                placeholder="Asignar a..."
                                onchange="updateAssignment(${esim.id}, this.value)"
                                style="width: 120px; padding: 4px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 12px;">
+                    </td>
+                    <td style="font-size: 11px; color: #495057;">
+                        ${esim.fechaAsignacion ? new Date(esim.fechaAsignacion).toLocaleDateString('es-MX', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }) : '-'}
                     </td>
                     <td>
                         ${esim.estado === 'Disponible' ? 
